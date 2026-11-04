@@ -100,6 +100,7 @@ pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
 .formula { font-size: 1.15rem; font-weight: 600; white-space: pre-line; text-align: center; margin: 8px 0; font-variant-numeric: tabular-nums; }
 .note { color: var(--fg2); font-size: .92rem; margin: 0; }
 .note:empty { display: none; }
+.note .primary { margin-top: 8px; }
 .mapping { margin: 0 0 10px; padding: 8px 12px; background: #f5f6f8; border-radius: 8px; font-size: .95rem; display: flex; flex-direction: column; gap: 2px; }
 .mapping b { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; font-size: 1.05rem; }
 .mapping span { border-bottom: 2px solid var(--c, transparent); font-weight: 600; }
@@ -116,6 +117,7 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .step { padding: 12px 0 12px 14px; border-left: 2px solid transparent; color: var(--muted); cursor: pointer; overflow-wrap: anywhere; line-height: 1.95; }
 .step.on { border-left-color: var(--fg); color: var(--fg); }
 .step.answer { font-weight: 600; }
+.step.later { display: none; } /* steps not reached yet: the answer is never on screen before its step */
 .att-head { font-size: .9rem; font-weight: 700; color: var(--fg2); }
 .attempt .tick { display: inline-block; width: 1.1em; font-weight: 700; }
 .attempt .ok .tick { color: var(--c2); }
@@ -129,6 +131,7 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .ref { --c: var(--dimink); display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
 .ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
 .ref.focus, .ref.solo { --c: var(--focus); }
+.ref.near { --c: color-mix(in srgb, var(--focus) 40%, var(--bg)); }
 .ref svg { width: 14px; height: 11px; align-self: center; flex: none; }
 .ref .nm, .names .ref .lt { display: none; }
 .names .ref .nm { display: inline; }
@@ -248,15 +251,15 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
   <p class="asked" id="asked" hidden><span class="tgt-chip" id="askedWhat"></span></p>
 
   <div class="intro" id="intro" hidden>
-    <p><b>Bu bir örnek soru.</b><span class="long"> Kendi sorun için Claude'un cevabının sonundaki şekil bloğunu yapıştır.</span></p>
+    <p><b>Bu bir örnek soru.</b><span class="long"> Kendi sorunun fotoğrafını Claude'a gönder; Claude bir bağlantı yollar, ona dokununca çözüm burada adım adım açılır.</span></p>
     <div class="row">
-      <button class="primary" id="introPaste" type="button">Şekil bloğunu yapıştır</button>
-      <button class="link" id="introSetup" type="button"><span class="long">İlk kez mi? </span>Claude'u ayarla</button>
+      <button class="primary" id="introSetup" type="button"><span class="long">İlk kez mi? </span>Claude'u ayarla</button>
+      <button class="link" id="introPaste" type="button">Şekil bloğu yapıştır</button>
     </div>
   </div>
 
   <div class="panel" id="pastebox" hidden>
-    <p>Claude'un cevabının en sonundaki kod bloğunu kopyala ve buraya yapıştır. Yapıştırınca çizilir.</p>
+    <p>Claude bağlantı yerine bir kod bloğu verdiyse (kod çalıştıramadığında böyle olur), onu kopyala ve buraya yapıştır. Yapıştırınca çizilir.</p>
     <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Şekil bloğu" placeholder="Şekil bloğunu buraya yapıştır"></textarea>
     <div id="err" role="alert"></div>
     <div class="pbtns">
@@ -290,11 +293,11 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
     <button class="link" id="setupToggle" type="button" aria-expanded="false">Claude'u ayarla</button>
     <div class="panel" id="setupbox" hidden>
       <ol class="howto">
-        <li><b>Talimatı kopyala.</b> Claude'a bu uygulama için şekil bloğu yazmasını söyleyen metin.<br><button class="primary" id="copyBtn" type="button">Talimatı kopyala</button></li>
-        <li><b>Claude'a yapıştır.</b> Claude uygulamasında Ayarlar → Profil → "Kişisel tercihler" kutusuna yapıştır ve kaydet.</li>
-        <li><b>Soruyu gönder.</b> Sorunun fotoğrafını Claude'a gönder. Cevabın sonundaki şekil bloğunu kopyala, burada "Yapıştır"a dokun.</li>
+        <li><b>Beceriyi yükle.</b> geometry-figures becerisinin zip dosyasını Claude'da Ayarlar → Yetenekler → Beceriler'den yükle. Dosyayı bu uygulamayı sana gönderen kişiden iste.</li>
+        <li><b>Soruyu gönder.</b> Sorunun fotoğrafını Claude'a gönder. Claude bir bağlantı yollar; ona dokun, çözüm burada adım adım açılır.</li>
+        <li><b>Kendi çözümünü de gönderebilirsin.</b> Fotoğrafta kalemle yazdığın bir çözüm varsa, Claude ilk hatanın nerede olduğunu ve nedenini gösterir.</li>
       </ol>
-      <p class="note">Beceri yüklemeyi biliyorsan geometry-figures becerisi de aynı işi yapar (Ayarlar → Yetenekler → Beceriler).</p>
+      <p class="note">Beceri yükleyemiyorsan: talimatı kopyala, Claude'da Ayarlar → Profil → "Kişisel tercihler" kutusuna yapıştır. O zaman Claude bağlantı yerine bir şekil bloğu verir; onu burada "Yapıştır"a dokunup yapıştır.<br><button class="primary" id="copyBtn" type="button">Talimatı kopyala</button></p>
       <details class="raw"><summary>Talimatın metnini göster</summary><pre id="prompt"></pre></details>
     </div>
   </footer>
@@ -891,7 +894,7 @@ const pathPts = (l, nm) => { const p = tokenize(String(l).replace(/[\s-]+/g, '')
 // Draws a figure (items as built by figureAt) to SVG markup. Used for the main figure and the rule cards.
 // o: { nm: point names, act: highlighted refs, fit: circles to fit, dims: {W, MAXH, PAD}, hidePoints }
 function drawFigure(F, o) {
-  const nm = o.nm, ref = k => parseRef(k, nm), D = o.dims || { W, MAXH, PAD }, act = o.act || [];
+  const nm = o.nm, ref = k => parseRef(k, nm), D = o.dims || { W, MAXH, PAD }, act = o.act || [], near = o.near || [];
   const { s, H, map } = frame(F, o.fit || F.circles, D), P = {};
   for (const [k, v] of Object.entries(F.points)) P[k] = map(v);
   const col = () => 'var(--focus)';
@@ -1019,18 +1022,22 @@ function drawFigure(F, o) {
   // A side whose parts are also highlighted (AB with AF and FB) goes underneath as a wide band, so all stay visible.
   const actSegs = act.filter(r => r.type === 'seg');
   const isWhole = r => r.type === 'seg' && actSegs.some(q => inside(q, r));
-  for (const r of act) {
-    const c = col(r); use(r.p);
-    if (isWhole(r)) continue; // its highlighted parts already cover it
-    if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-linecap:round;stroke-width:4"/>`;
-    else if (r.type === 'poly') out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-width:3;stroke-linejoin:round"/>`;
+  // The rest of what the sentence names goes underneath as a wide pale blue band, matching its lighter underline in the text,
+  // so every underlined word can be found on the figure and the step's main item still stands out.
+  const hl = (r, strong) => {
+    const c = col(r), o2 = strong ? 1 : .32; use(r.p);
+    if (strong && isWhole(r)) return; // its highlighted parts already cover it
+    if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-opacity:${o2};stroke-linecap:round;stroke-width:${strong ? 4 : 8}"/>`;
+    else if (r.type === 'poly') out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 3 : 7};stroke-linejoin:round"/>`;
     else if (r.type === 'angle') {
       const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
       const d = g.right ? `M${pt(V)} L${squarePts(V, g, 16).map(pt).join(' L')} Z` : `M${pt(V)} L${pt(onArc(V, 30, g.a1))} ${arcTo(V, 30, g)} Z`;
-      out += `<path class="hl" d="${d}" style="fill:${c};fill-opacity:.45"/>`;
-    } else if (r.type === 'arc') { const g = arcOf(r); if (g) out += `<path class="hl" d="${arcPath(g)}" style="fill:none;stroke:${c};stroke-width:5;stroke-linecap:round"/>`; }
-    else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="7" style="fill:${c}"/>`;
-  }
+      out += `<path class="hl" d="${d}" style="fill:${c};fill-opacity:${strong ? .45 : .2}"/>`;
+    } else if (r.type === 'arc') { const g = arcOf(r); if (g) out += `<path class="hl" d="${arcPath(g)}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 5 : 9};stroke-linecap:round"/>`; }
+    else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="${strong ? 7 : 9}" style="fill:${c};fill-opacity:${o2}"/>`;
+  };
+  for (const r of near) hl(r, false);
+  for (const r of act) hl(r, true);
   const all = Object.values(P), cx = all.reduce((a, p) => a + p[0], 0) / all.length, cy = all.reduce((a, p) => a + p[1], 0) / all.length;
   const labelSegs = Object.keys(F.labels).map(ref).filter(r => r && r.type === 'seg');
   for (const k of Object.keys(F.labels)) { const r = ref(k); if (r && r.type !== 'point' && r.type !== 'poly') use(r.p); }
@@ -1162,6 +1169,10 @@ addEventListener('resize', () => requestAnimationFrame(() => {
   if (k !== lastDims && steps.length) { lastDims = k; view = null; autoView = false; render(); }
 }));
 
+// What a step's sentence names (and values tagged with their side) besides its main item; plain sides in a
+// calculation stay grey chips that light up when tapped.
+const nearKeys = st => [...st.keys].filter(k => !st.focus.has(k));
+
 function render() {
   const fig = shownFig(); if (figs[fig]) useFig(figs[fig]);
   document.querySelectorAll('#figtabs .tog').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.fig === fig)));
@@ -1169,6 +1180,7 @@ function render() {
   const fresh = drawIn && !problemOnly ? cur : -1; drawIn = false;
   const F = figureAt(problemOnly ? -1 : cur, fresh);
   const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(steps[cur] ? steps[cur].focus : [])]).map(k => refs.get(k)).filter(Boolean);
+  const near = problemOnly || !showHl || solo || !steps[cur] ? [] : nearKeys(steps[cur]).map(k => refs.get(k)).filter(Boolean);
   // A length or angle the book left unlabeled gets a "?" written on it like a given value; on the answer step, the answer.
   if (tgt && asked.r.type !== 'poly' && asked.r.type !== 'point') {
     const solved = !problemOnly && steps[cur] && steps[cur].answer && asked.value;
@@ -1179,7 +1191,7 @@ function render() {
     else if (!own) putLabel(F, asked.ref, { v: '?', added: false });
   }
   const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
-  const d = drawFigure(F, { nm: names, act, dims: figDims(), unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
+  const d = drawFigure(F, { nm: names, act, near, dims: figDims(), unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
   full = { x: 0, y: 0, w: d.w, h: d.h }; figP = d.P;
   svg.style.setProperty('--ar', (d.h / d.w).toFixed(3));
@@ -1196,11 +1208,12 @@ function render() {
   $('hl').setAttribute('aria-pressed', String(showHl));
   $('app').classList.toggle('nohl', !showHl);
 
-  document.querySelectorAll('.step').forEach(el => el.classList.toggle('on', +el.dataset.i === cur));
+  document.querySelectorAll('.step').forEach(el => { el.classList.toggle('on', +el.dataset.i === cur); el.classList.toggle('later', +el.dataset.i > cur); });
   document.querySelectorAll('.ref').forEach(el => {
     const here = +el.dataset.i === cur;
     el.classList.toggle('solo', here && el.dataset.k === solo);
     el.classList.toggle('focus', here && !solo && !!steps[cur] && steps[cur].focus.has(el.dataset.k));
+    el.classList.toggle('near', here && !solo && !!steps[cur] && nearKeys(steps[cur]).includes(el.dataset.k));
   });
   const nSteps = steps.filter(s => !s.answer && !s.attempt).length, end = cur >= steps.length - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
   $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].attempt ? 'Senin çözümün' : `${cur + 1 - skip} / ${nSteps}`;
@@ -1473,13 +1486,14 @@ function tryDraw(text, save) {
   try {
     load(parseInput(text), { sample: !save });
     if (save) { try { localStorage.setItem('geo-last', text); localStorage.setItem('geo-step', '0'); } catch (e) {} }
+    $('input').value = '';
     toggle($('pasteToggle'), $('pastebox'), false);
     window.scrollTo({ top: 0 });
   } catch (e) { $('err').textContent = e.message; toggle($('pasteToggle'), $('pastebox'), true); }
 }
 $('drawBtn').addEventListener('click', () => tryDraw($('input').value, true));
 $('input').addEventListener('paste', () => setTimeout(() => tryDraw($('input').value, true), 0));
-$('sampleBtn').addEventListener('click', () => { $('input').value = JSON.stringify(SAMPLE, null, 2); tryDraw($('input').value, false); });
+$('sampleBtn').addEventListener('click', () => { $('input').value = ''; tryDraw(JSON.stringify(SAMPLE), false); });
 
 $('prompt').textContent = PROMPT;
 $('copyBtn').addEventListener('click', () => {
@@ -1510,7 +1524,6 @@ $('shareBtn').addEventListener('click', async () => {
 let saved = null, savedStep = 0;
 try { saved = localStorage.getItem('geo-last'); savedStep = +localStorage.getItem('geo-step') || 0; } catch (e) {}
 try { if (saved) load(parseInput(saved), { step: savedStep }); else load(SAMPLE, { sample: true }); } catch (e) { saved = null; load(SAMPLE, { sample: true }); }
-if (saved) $('input').value = saved;
 layoutMode();
 
 // A link can carry the figure after "#": #f=<deflate-raw, base64url> (made by the skill's script) or #j=<URL-encoded JSON>.
@@ -1528,7 +1541,6 @@ async function fromHash() {
     let step = 0;
     try { if (localStorage.getItem('geo-last') === text) step = +localStorage.getItem('geo-step') || 0; } catch (e) {}
     load(parseInput(text), { step });
-    $('input').value = text;
     try { localStorage.setItem('geo-last', text); localStorage.setItem('geo-step', String(cur)); } catch (e) {}
     layoutMode();
   } catch (e) {
