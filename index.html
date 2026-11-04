@@ -117,6 +117,8 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .step { padding: 12px 0 12px 14px; border-left: 2px solid transparent; color: var(--muted); cursor: pointer; overflow-wrap: anywhere; line-height: 1.95; }
 .step.on { border-left-color: var(--fg); color: var(--fg); }
 .step.answer { font-weight: 600; }
+.recap { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 400; font-size: .95rem; color: var(--fg2); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.recap > span { flex-basis: 100%; }
 .step.later { display: none; } /* steps not reached yet: the answer is never on screen before its step */
 .att-head { font-size: .9rem; font-weight: 700; color: var(--fg2); }
 .attempt .tick { display: inline-block; width: 1.1em; font-weight: 700; }
@@ -703,7 +705,7 @@ function load(data, opts = {}) {
   }
   $('title').textContent = data.title || 'Geometri Görüntüleyici';
   $('question').textContent = data.question || '';
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}</li>`)).join('');
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}${s.answer ? recapHtml(i) : ''}</li>`)).join('');
   isSample = !!opts.sample;
   shareText = isSample ? '' : text;
   $('shareBtn').hidden = isSample;
@@ -725,6 +727,15 @@ function load(data, opts = {}) {
   cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
 }
 function useFig(g) { base = g.base; names = g.names; }
+
+// The answer ends with the method: every rule the solution used, as the same cards, in the order they came up,
+// so the student leaves with what to try on the next question and not only the number.
+function recapHtml(i) {
+  const seen = new Map();
+  for (const st of steps) if (!st.answer) for (const t of [st.t, ...(st.math || [])])
+    for (const m of String(t).matchAll(/\{([\w-]+)((?:\s+[^\s=}]+=[^\s}]+)*)\}/g)) if (ruleFor(m[1]) && !seen.has(m[1])) seen.set(m[1], m[0]);
+  return seen.size ? `<div class="recap"><span>Bu soruda kullanılanlar:</span> ${[...seen.values()].map(r => renderText(r, i)).join(' ')}</div>` : '';
+}
 
 // "axes": true draws a coordinate plane under the figure; { "x": [-2, 8], "y": [-1, 6], "step": 1, "grid": true }
 // picks the ranges, the unit between ticks and a squared-paper grid. Without ranges they reach one unit past the points.
@@ -1268,7 +1279,8 @@ function render() {
     el.classList.toggle('focus', here && !solo && !!steps[cur] && steps[cur].focus.has(el.dataset.k));
     el.classList.toggle('near', here && !solo && !!steps[cur] && nearKeys(steps[cur]).includes(el.dataset.k));
   });
-  const nSteps = steps.filter(s => !s.answer && !s.attempt).length, end = cur >= steps.length - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
+  // the answer screen counts too, so the last step never reads as the end
+  const nSteps = steps.filter(s => !s.attempt).length, end = cur >= steps.length - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
   $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].attempt ? 'Senin çözümün' : `${cur + 1 - skip} / ${nSteps}`;
   $('app').classList.toggle('no-steps', !steps.length);
   $('prev').disabled = cur <= 0;
