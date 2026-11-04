@@ -115,6 +115,15 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .step { padding: 12px 0 12px 14px; border-left: 2px solid transparent; color: var(--muted); cursor: pointer; overflow-wrap: anywhere; line-height: 1.95; }
 .step.on { border-left-color: var(--fg); color: var(--fg); }
 .step.answer { font-weight: 600; }
+.att-head { font-size: .9rem; font-weight: 700; color: var(--fg2); }
+.attempt .tick { display: inline-block; width: 1.1em; font-weight: 700; }
+.attempt .ok .tick { color: var(--c2); }
+.attempt .bad .tick { color: var(--err); }
+.attempt .fix { color: var(--c2); }
+.attempt .slip { text-decoration: underline wavy var(--err); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+.attempt .fix { padding-left: 1.1em; font-weight: 600; }
+.attempt .after { padding-left: 1.1em; opacity: .5; }
+.attempt .why { margin: 6px 0 0; }
 .math { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line2); font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
 .ref { --c: var(--dimink); display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
 .ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
@@ -377,6 +386,12 @@ Kurallar:
 - Sayının nereden geldiği görünsün: bir kenarın ya da açının değerini işleme koyduğunda sayıyı çıplak yazma, [kenar:değer] yaz: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF:9] · [FB:4]", "[AB] = [AF:9] + [FB:4] = 13", "[∠ABC:40°] + [∠BCA:60°] + [∠CAB] = 180°"]. Uygulama sayıyı o kenarın rengiyle yazar ve dokununca kenarı şekilde gösterir. Ara sonuçlar (36 ÷ 4 gibi) çıplak kalabilir.
 - Kurallar: bir adımda bilinen bir kural kullandığında adını süslü parantezle yaz, uygulamada dokununca şekilli bir kart açılır. Kullanılabilenler: {oklid}, {pisagor}, {aciortay} (iç açıortay teoremi), {ikizkenar}, {ic-ters}, {yondes}, {ic-acilar}, {dis-aci}, {paralelkenar-alan}, {ucgen-alan}, {eskenar-dortgen}, {benzerlik}, {dik-kenarortay}, {30-60-90}, {45-45-90}, {ardisik-aciortay}, {cevre-aci}, {teget}. Kuralın kartındaki harfleri bu sorudaki kenarlarla eşleştir ki kartta "h = yükseklik |EF|" görünsün: {oklid h=EF p=AF k=FB}, {pisagor a=AB b=BC c=AC}. Kartlardaki harfler: oklid h p k a b c, pisagor a b c (c hipotenüs), aciortay c b x y, ucgen-alan a h, paralelkenar-alan a h, eskenar-dortgen e f. Örnek: "{oklid h=EF p=AF k=FB} ile [EF]² = [AF] · [FB]". Listede olmayan bir kural için "rules": { "anahtar": { "name": "Kuralın adı", "formula": "formül", "note": "tek cümle açıklama" } } ekle ve adımda {anahtar} yaz. Süslü parantezi başka bir şey için kullanma.
 - Birden çok şekil: soruda Şekil 1, Şekil 2 gibi ayrı şekiller varsa hepsini çiz. Şekle ait alanları (points, lines, helpers, rights, equalAngles, equalSides, fills, circles, labels, unlabeled, names) üst kısım yerine "figures" listesine, her şekil için ayrı bir nesne olarak koy ve her birine kitaptaki adını ver: "figures": [{ "label": "Şekil 1", "points": {...}, "lines": [...] }, { "label": "Şekil 2", "points": {...}, "lines": [...] }]. title, question, asked, steps, answer, rules üst kısımda kalır. Her şekil kendi noktalarını kullanır; iki şekilde aynı harf olabilir. Her adıma hangi şekilden bahsettiğini yaz: "fig": 2 (1'den sayılır); yazmazsan önceki adımın şekli kalır. Adımın add kısmı o şekle eklenir. asked'e de istenen şeyin şeklini yaz: "fig": 2. Uygulama şekiller arasında geçiş düğmeleri gösterir. Tek şekilli sorularda "figures" kullanma.
+- Öğrencinin kendi çözümü: fotoğrafta öğrencinin kalemle yazdığı bir çözüm denemesi varsa (işlemler, yazdığı sayılar, şekle çizdiği çizgiler), bloğa "attempt" ekle; yoksa hiç ekleme. "attempt": {"lines": ["[AB] − [DC] = 10 − 4 = 6", "[AP] = 6"], "wrong": 2, "fix": "[AP] = 6 ÷ 2 = 3", "why": "Fark olan 6, [AP] ve [QB] olmak üzere iki eş parçaya bölünür; bir parça 3 olur."}. Uygulama bunu çözümden önce, öğretmenin kırmızı kalemi gibi gösterir.
+  - lines: öğrencinin yazdığı işlemler, onun sırasıyla ve onun yazdığı gibi (kenarları [AB] diye işaretle). Okunmayan yeri tahmin etme, atla. En fazla 8 satır; uzunsa hatanın çevresini koru.
+  - wrong: ilk yanlış satırın numarası (1'den sayılır). fix: o satırın doğrusu. why: hatanın NEDENİ 1-2 sade cümleyle: hangi kuralı yanlış uyguladı, neyi unuttu ya da neyi yanlış okudu. Suçlamadan yaz.
+  - Hepsi doğruysa "wrong" ve "fix" yazma; why'da neyi doğru yaptığını, yarım kaldıysa nerede kaldığını ve sıradaki adımı söyle.
+  - Öğrencinin kalemle şekle eklediği çizgi, sayı ve işaretler kitabın şekli değildir; üst kısma koyma.
+  - Çözüm adımlarını yine tam yaz. Öğrencinin yolu doğruysa aynı yoldan git ki hatasını düzelttiği yeri adımlarda görsün.
 - answer: sonuç ve doğru şık.
 - JSON geçerli olmalı: çift tırnak, yorum yok, sonda fazladan virgül yok.`;
 
@@ -660,6 +675,11 @@ function load(data, opts = {}) {
   // "asked": "EC" or { "ref": "EC", "text": "|EC| = x kaç cm'dir?", "value": "9", "fig": 2 }; text is the question's own wording.
   const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), askedFig = ak.fig != null ? figOf(ak.fig) : figs.length - 1;
   if (data.answer) steps.push({ t: String(data.answer), add: {}, answer: true, fig: askedFig + 1 });
+  // "attempt": the student's own written work from the photo, checked line by line, shown before the solution.
+  // { "lines": [...], "wrong": 2 (first wrong line, from 1; none when all correct), "fix": "the right line", "why": "..." }
+  const at0 = obj(data.attempt), tried = arr(at0.lines).map(String).filter(Boolean);
+  if (tried.length) steps.unshift({ t: String(at0.why || ''), add: {}, math: [], fig: at0.fig != null ? at0.fig : steps.length ? steps[0].fig : askedFig + 1,
+    attempt: { lines: tried, wrong: Math.max(0, Math.min(tried.length, Math.round(+at0.wrong) || 0)), fix: at0.fix ? String(at0.fix) : '' } });
   let at = 0;
   steps.forEach(s => { s.keys = new Set(); s.mathKeys = new Set(); at = s.fig != null ? figOf(s.fig) : at; s.fig = at; });
   useFig(figs[askedFig]);
@@ -672,7 +692,7 @@ function load(data, opts = {}) {
   }
   $('title').textContent = data.title || 'Geometri Görüntüleyici';
   $('question').textContent = data.question || '';
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}</li>`).join('');
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}</li>`)).join('');
   isSample = !!opts.sample;
   shareText = isSample ? '' : text;
   $('shareBtn').hidden = isSample;
@@ -695,6 +715,18 @@ function load(data, opts = {}) {
 }
 function useFig(g) { base = g.base; names = g.names; }
 
+// The student's lines as a teacher marks them: checked lines, the first wrong one underlined in red with the
+// right line under it, the rest faded (they build on the mistake). The reason below can point at the figure.
+function attemptHtml(s, i) {
+  const { lines, wrong, fix } = s.attempt;
+  const row = (l, n) => {
+    const k = n + 1, txt = renderText(l, i, true);
+    if (!wrong || k < wrong) return `<div class="ok"><span class="tick" aria-label="doğru">✓</span> ${txt}</div>`;
+    if (k > wrong) return `<div class="after">${txt}</div>`;
+    return `<div class="bad"><span class="tick" aria-label="yanlış">✗</span> <span class="slip">${txt}</span></div>${fix ? `<div class="fix">Doğrusu: ${renderText(fix, i, true)}</div>` : ''}`;
+  };
+  return `<li class="step attempt" tabindex="0" data-i="${i}"><div class="att-head">${wrong ? `Senin çözümün · ${wrong}. satırda hata` : 'Senin çözümün · doğru'}</div><div class="math">${lines.map(row).join('')}</div>${s.t ? `<p class="why">${renderText(s.t, i, false, new Set())}</p>` : ''}</li>`;
+}
 // "move": ["APD", "BQC"] slides a copy of △APD onto △BQC, A onto B, P onto Q, D onto C, so the student sees which
 // corners and sides match. Several pairs: [["APD", "BQC"], ["ABE", "DCF"]], played one after another.
 function movesOf(st) {
@@ -1153,8 +1185,8 @@ function render() {
     el.classList.toggle('solo', here && el.dataset.k === solo);
     el.classList.toggle('focus', here && !solo && !!steps[cur] && steps[cur].focus.has(el.dataset.k));
   });
-  const nSteps = steps.filter(s => !s.answer).length, end = cur >= steps.length - 1;
-  $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : `${cur + 1} / ${nSteps}`;
+  const nSteps = steps.filter(s => !s.answer && !s.attempt).length, end = cur >= steps.length - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
+  $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].attempt ? 'Senin çözümün' : `${cur + 1 - skip} / ${nSteps}`;
   $('app').classList.toggle('no-steps', !steps.length);
   $('prev').disabled = cur <= 0;
   // on the last step › becomes "start over"
