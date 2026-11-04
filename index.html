@@ -294,25 +294,28 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
 <script>
 const PROMPT = `Sana bir geometri sorusu gönderdiğimde (genelde fotoğraf), soruyu Türkçe çöz. Sonra cevabın en sonuna, Geometri Görüntüleyici'ye yapıştırabilmem için bu JSON formatında TEK bir kod bloğu ekle:
 
-{
-  "title": "sorunun kısa adı",
-  "question": "sorunun metni ve verilenler, şıklarla birlikte",
-  "points": { "A": [0, 0], "B": [13, 0], "C": [15.5, 6], "D": [2.5, 6], "E": [9, 6], "F": [9, 0] },
-  "lines": ["ABCDA"],
-  "helpers": ["AE", "BE", "EF"],
-  "rights": ["∠EFB"],
-  "equalAngles": [["∠DAE", "∠EAB"], ["∠ABE", "∠EBC"]],
-  "labels": { "EF": "6", "FB": "4" },
-  "asked": { "ref": "ABCD", "text": "A(ABCD) kaç cm²?", "value": "78" },
-  "names": { "EF": "yükseklik", "AB": "taban", "AF": "sol parça", "FB": "sağ parça" },
-  "steps": [
-    { "text": "Yarı açılara α ve β diyelim; yan yana iki açının toplamı 180°.", "math": ["2α + 2β = 180°", "α + β = 90°", "[∠AEB] = 90°"], "add": { "vars": { "∠EAB": "α", "∠ABE": "β" }, "rights": ["∠AEB"] } },
-    { "text": "Hipotenüse inen yükseklik için {oklid h=EF p=AF k=FB}:", "math": ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF] · [FB:4]", "[AF] = 36 ÷ 4 = 9"], "add": { "labels": { "AF": "9" } } }
-  ],
-  "answer": "Alan = [AB] × [EF] = 13 × 6 = 78 cm² → E"
-}
+{"title":"Paralelkenar, iki açıortay",
+"question":"ABCD paralelkenar, [AE] ve [BE] açıortay, [EF] ⊥ [AB], |EF| = 6, |FB| = 4.",
+"points":{"A":[0,0],"B":[13,0],"C":[15.5,6],"D":[2.5,6],"E":[9,6],"F":"foot E AB"},
+"lines":["ABCDA"],"helpers":["AE","BE","EF"],"rights":["∠EFB"],
+"equalAngles":[["∠DAE","∠EAB"],["∠ABE","∠EBC"]],
+"labels":{"EF":"6","FB":"4"},
+"asked":{"ref":"ABCD","text":"A(ABCD) kaç cm²?","value":"78"},
+"steps":[
+{"text":"Yan yana iki açının toplamı 180°, yarıları 90°.","math":["2α + 2β = 180°","[∠AEB] = 90°"],"add":{"vars":{"∠EAB":"α","∠ABE":"β"},"rights":["∠AEB"]}},
+{"text":"{oklid h=EF p=AF k=FB}:","math":["[EF:6]² = [AF] · [FB:4]","[AF] = 9"],"add":{"labels":{"AF":"9"}}}
+],
+"answer":"A(ABCD) = [AB:13] · [EF:6] = 78 cm² → E"}
+
 
 Kurallar:
+- HIZ: öğrenci cevabı hızlı görmek istiyor, yazdığın her karakter zaman alır. Bu yüzden:
+  - Bloğu yukarıdaki gibi sıkışık yaz: girinti, boş satır, gereksiz boşluk yok; her adım tek satır.
+  - Uzun uzun düşünme ve deneme yapma: en kısa çözüm yolunu bul, bir kez kontrol et, hemen bloğu yaz.
+  - Adım sayısı az olsun (genelde 2-4). Basit işlemleri ayrı adım yapma, bir önceki adımın math satırına ekle.
+  - Adım metni en fazla bir kısa cümle; hesabı math satırları anlatır.
+  - question: sadece verilenler, kısaca. Şıkları yazma (doğru şık answer'da).
+  - title kısa (2-4 kelime). names sadece gerçekten yardım edecekse ve en fazla 1-3 kenar için.
 - Üst kısım (lines, helpers, rights, equalAngles, equalSides, fills, circles, labels) SADECE soruda verilen şekil olmalı, kitaptaki gibi. Çözümde eklediğin her şeyi (yeni çizgi, yeni dik açı, bulduğun uzunluk, eşitlik işareti) o adımın "add" kısmına koy. Şekil adım adım kurulur ve "Sadece soru" düğmesi sorunun kendisini gösterir.
 - points: köşeleri [x, y] olarak yaz (y yukarı). Koordinatları gerçek ölçülere uygun seç: dik açılar dik, eşit kenarlar eşit görünsün. Çözümde eklediğin noktaları da yaz.
 - Köşelerden türeyen noktaları hesaplama, uygulamaya kurdur: "M": "mid AB" (orta nokta), "K": "on AB 0.3" (A'dan B'ye yolun %30'u), "H": "foot E AB" (E'den AB doğrusuna dikmenin ayağı), "P": "inter AC BD" (AC ve BD doğrularının kesişimi), "F": "par E AB CD" (E'den AB'ye çizilen paralelin CD doğrusunu kestiği yer), "G": "perp E AB CD" (E'den AB'ye çizilen dikmenin CD doğrusunu kestiği yer), "D": "shift C BA" (C'yi B→A kadar kaydır: paralelkenarın dördüncü köşesi). "on AB 1.4" gibi 1'den büyük sayı kenarı B'nin ötesine uzatır. Böylece nokta tam yerinde olur, koordinat hesabıyla vakit kaybetmezsin.
@@ -334,7 +337,7 @@ Kurallar:
 - Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
 - labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
 - Senin eklediğin her şey (add içindekiler) şekilde turuncu, yeni çizgiler kesikli çizilir; kitaptakiler siyah/pembe kalır. Bu yüzden sorudaki şeyleri add'e, kendi eklediklerini üst kısma koyma.
-- names: denklemlerde geçen kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
+- names (isteğe bağlı): gerekirse denklemlerde geçen önemli kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
 - En kısa yoldan çöz: sadece sorulan sonuca giden adımları yaz. Önce neye ihtiyaç olduğunu düşün (alan için taban ve yükseklik gibi) ve sadece onları bul. Sonuca katkısı olmayan bir uzunluğu, açıyı ya da değişkeni hesaplama, işaretleme ya da adlandırma.
 - steps: her adımda tek kısa fikir, sade cümleler. Bahsettiğin HER kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
 - asked: sorunun ne istediği, HER zaman yaz. "ref": uzunluk için "EC", açı için "∠ABC", alan için "ABCD" ya da "△ABC". "text": sorunun soru cümlesi, kitaptaki gibi aynen ("A(ABCD) kaç cm²?", "|EC| = x kaç cm'dir?"). "value": kısa cevap ("78", "9", "40°"). İstenen şey şekilde sarıyla işaretlenir. Kitap bilinmeyene bir ad verdiyse (EC üzerinde "x" gibi) onu labels'a yaz; vermediyse uygulama "?" yazar.
