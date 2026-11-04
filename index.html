@@ -68,6 +68,8 @@ pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
 .fig svg { display: block; width: 100%; max-height: 46vh; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .legend { display: block; text-align: right; margin: -2px 0 6px; color: var(--claude); font-size: .8rem; font-weight: 600; white-space: nowrap; }
 .legend::before { content: ""; display: inline-block; width: 16px; border-top: 2px dashed var(--claude); vertical-align: middle; margin-right: 6px; }
+.figtabs { position: absolute; top: 0; left: 0; z-index: 1; display: flex; gap: 6px; }
+.figtabs .tog { background: var(--bg); }
 .zoomreset { position: absolute; top: 0; right: 0; font-size: .85rem; font-weight: 600; background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 0 14px; min-height: 44px; }
 
 /* view switches: one look for all three, pressed = filled */
@@ -240,6 +242,7 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
 
   <div class="layout" id="layout">
     <div class="fig">
+      <div class="figtabs" id="figtabs" role="group" aria-label="Şekiller" hidden></div>
       <svg id="svg" role="img" aria-label="Şekil"></svg>
       <span class="legend" id="legend" hidden>Claude ekledi</span>
       <button class="zoomreset" id="zoomReset" type="button" hidden>Sıfırla</button>
@@ -332,6 +335,7 @@ Kurallar:
 - math: işlem satırları. Hesap yaptığın her adımda açıklamayı kısa tut, işlemleri "math" listesine her satıra bir adım olacak şekilde yaz. Çarpma için · kullan. Kenarları [AF] gibi işaretle.
 - Sayının nereden geldiği görünsün: bir kenarın ya da açının değerini işleme koyduğunda sayıyı çıplak yazma, [kenar:değer] yaz: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF:9] · [FB:4]", "[AB] = [AF:9] + [FB:4] = 13", "[∠ABC:40°] + [∠BCA:60°] + [∠CAB] = 180°"]. Uygulama sayıyı o kenarın rengiyle yazar ve dokununca kenarı şekilde gösterir. Ara sonuçlar (36 ÷ 4 gibi) çıplak kalabilir.
 - Kurallar: bir adımda bilinen bir kural kullandığında adını süslü parantezle yaz, uygulamada dokununca şekilli bir kart açılır. Kullanılabilenler: {oklid}, {pisagor}, {aciortay} (iç açıortay teoremi), {ikizkenar}, {ic-ters}, {yondes}, {ic-acilar}, {dis-aci}, {paralelkenar-alan}, {ucgen-alan}, {eskenar-dortgen}, {benzerlik}, {dik-kenarortay}, {30-60-90}, {45-45-90}, {ardisik-aciortay}, {cevre-aci}, {teget}. Kuralın kartındaki harfleri bu sorudaki kenarlarla eşleştir ki kartta "h = yükseklik |EF|" görünsün: {oklid h=EF p=AF k=FB}, {pisagor a=AB b=BC c=AC}. Kartlardaki harfler: oklid h p k a b c, pisagor a b c (c hipotenüs), aciortay c b x y, ucgen-alan a h, paralelkenar-alan a h, eskenar-dortgen e f. Örnek: "{oklid h=EF p=AF k=FB} ile [EF]² = [AF] · [FB]". Listede olmayan bir kural için "rules": { "anahtar": { "name": "Kuralın adı", "formula": "formül", "note": "tek cümle açıklama" } } ekle ve adımda {anahtar} yaz. Süslü parantezi başka bir şey için kullanma.
+- Birden çok şekil: soruda Şekil 1, Şekil 2 gibi ayrı şekiller varsa hepsini çiz. Şekle ait alanları (points, lines, helpers, rights, equalAngles, equalSides, fills, circles, labels, unlabeled, names) üst kısım yerine "figures" listesine, her şekil için ayrı bir nesne olarak koy ve her birine kitaptaki adını ver: "figures": [{ "label": "Şekil 1", "points": {...}, "lines": [...] }, { "label": "Şekil 2", "points": {...}, "lines": [...] }]. title, question, asked, steps, answer, rules üst kısımda kalır. Her şekil kendi noktalarını kullanır; iki şekilde aynı harf olabilir. Her adıma hangi şekilden bahsettiğini yaz: "fig": 2 (1'den sayılır); yazmazsan önceki adımın şekli kalır. Adımın add kısmı o şekle eklenir. asked'e de istenen şeyin şeklini yaz: "fig": 2. Uygulama şekiller arasında geçiş düğmeleri gösterir. Tek şekilli sorularda "figures" kullanma.
 - answer: sonuç ve doğru şık.
 - JSON geçerli olmalı: çift tırnak, yorum yok, sonda fazladan virgül yok.`;
 
@@ -360,6 +364,9 @@ const ICON = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_NEXT = ICON('M9 5l7 7-7 7'), ICON_RESTART = ICON('M4 12a8 8 0 1 0 2.3-5.7M4 4v5h5');
 const NCOL = 5, W = 400, MAXH = 380, PAD = 40;
 const LISTS = ['lines', 'helpers', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills'];
+// figs: every figure of the question ({ label, base, names }); base and names are the one being drawn.
+// viewFig: the figure "Sadece soru" shows.
+let figs = [], viewFig = 0;
 let isSample = false, asked = null, base = null, names = [], steps = [], cur = 0, solo = null, problemOnly = false, showHl = true, sideNames = {}, customRules = {};
 let refs = new Map(), colorOf = new Map();
 let full = { x: 0, y: 0, w: W, h: 300 }, view = null; // view: zoomed viewBox, null when showing everything
@@ -573,26 +580,36 @@ function resolvePoints(raw) {
 }
 
 // opts: { sample: true for the built-in example, step: the step to open on }
+// A question with several figures (Şekil 1, Şekil 2) lists them in "figures"; each step says which one it is about
+// with "fig": 2 (counting from 1), and steps without it stay on the previous step's figure.
 function load(data, opts = {}) {
-  if (!data || !data.points || typeof data.points !== 'object' || !Object.keys(data.points).length) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
-  const pts = resolvePoints(data.points);
-  names = Object.keys(pts).sort((x, y) => y.length - x.length);
-  base = { points: pts, labels: obj(data.labels), unlabeled: new Set(arr(data.unlabeled).map(String)) };
-  for (const k of LISTS) base[k] = arr(data[k]);
+  const many = Array.isArray(data && data.figures) && data.figures.length, list = many ? data.figures : [data];
+  if (list.some(d => !d || !d.points || typeof d.points !== 'object' || !Object.keys(d.points).length)) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
   sideNames = {};
-  for (const [k, v] of Object.entries(obj(data.names))) { const r = parseRef(k); if (r && v) sideNames[r.key] = String(v); }
+  figs = list.map((d, n) => {
+    const pts = resolvePoints(d.points), fb = { points: pts, labels: obj(d.labels), unlabeled: new Set(arr(d.unlabeled).map(String)) };
+    for (const k of LISTS) fb[k] = arr(d[k]);
+    const fig = { label: String(d.label || `Şekil ${n + 1}`), base: fb, names: Object.keys(pts).sort((x, y) => y.length - x.length) };
+    useFig(fig);
+    for (const [k, v] of Object.entries({ ...obj(data.names), ...obj(d.names) })) { const r = parseRef(k); if (r && v) sideNames[r.key] = String(v); }
+    return fig;
+  });
+  const figOf = v => Math.max(0, Math.min(figs.length - 1, (+v || 1) - 1));
   // Rules Claude defines itself: text only, no diagram.
   customRules = {};
   for (const [k, v] of Object.entries(obj(data.rules))) {
     if (obj(v).name) customRules[k] = { name: String(v.name), formula: String(v.formula || ''), note: String(v.note || '') };
   }
   refs = new Map(); colorOf = new Map(); view = null; closeRule();
-  steps = arr(data.steps).map(s => typeof s === 'string' ? { t: s, add: {}, math: [] } : { t: String((s && s.text) || ''), add: obj(s && s.add), math: arr(s && s.math).map(m => String(m).replace(/\s\*\s/g, ' · ')) });
-  if (data.answer) steps.push({ t: String(data.answer), add: {}, answer: true });
-  steps.forEach(s => s.keys = new Set());
-  // "asked": "EC" or { "ref": "EC", "text": "|EC| = x kaç cm'dir?", "value": "9" }; text is the question's own wording.
-  const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), ar = parseRef(ak.ref || '');
-  asked = ar && { r: ar, ref: String(ak.ref), value: ak.value != null ? String(ak.value) : '' };
+  steps = arr(data.steps).map(s => typeof s === 'string' ? { t: s, add: {}, math: [] } : { t: String((s && s.text) || ''), add: obj(s && s.add), math: arr(s && s.math).map(m => String(m).replace(/\s\*\s/g, ' · ')), fig: s && s.fig });
+  // "asked": "EC" or { "ref": "EC", "text": "|EC| = x kaç cm'dir?", "value": "9", "fig": 2 }; text is the question's own wording.
+  const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), askedFig = ak.fig != null ? figOf(ak.fig) : figs.length - 1;
+  if (data.answer) steps.push({ t: String(data.answer), add: {}, answer: true, fig: askedFig + 1 });
+  let at = 0;
+  steps.forEach(s => { s.keys = new Set(); at = s.fig != null ? figOf(s.fig) : at; s.fig = at; });
+  useFig(figs[askedFig]);
+  const ar = parseRef(ak.ref || '');
+  asked = ar && { r: ar, ref: String(ak.ref), value: ak.value != null ? String(ak.value) : '', fig: askedFig };
   $('asked').hidden = !asked;
   if (asked) {
     const what = { seg: `|${ar.p.join('')}|`, angle: `m(${ar.p.join('')})`, poly: `A(${ar.p.join('')})`, point: ar.p[0] }[ar.type];
@@ -600,12 +617,17 @@ function load(data, opts = {}) {
   }
   $('title').textContent = data.title || 'Geometri Görüntüleyici';
   $('question').textContent = data.question || '';
-  $('steps').innerHTML = steps.map((s, i) => `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}</li>`).join('');
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), '') + `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}</li>`).join('');
   isSample = !!opts.sample;
   $('intro').hidden = !isSample;
   $('sampleBtn').hidden = isSample;
-  cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); solo = null; setMode(false);
+  $('figtabs').hidden = figs.length < 2;
+  $('figtabs').innerHTML = figs.map((g, n) => `<button class="tog" type="button" data-fig="${n}" aria-pressed="false">${esc(g.label)}</button>`).join('');
+  cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
 }
+function useFig(g) { base = g.base; names = g.names; }
+// The figure on screen: the current step's, or the one picked for "Sadece soru".
+const shownFig = () => problemOnly || !steps[cur] ? viewFig : steps[cur].fig;
 
 // The figure as of step i: the problem as given plus everything steps 0..i added. i = -1 is the bare problem.
 // Every item is { v, added }: added is false when it is in the book, true when Claude's solution drew it,
@@ -613,9 +635,10 @@ function load(data, opts = {}) {
 function figureAt(i, fresh = -1) {
   const F = { points: base.points, labels: {} };
   for (const k of LISTS) F[k] = [];
-  const srcs = [base, ...steps.slice(0, Math.max(0, i + 1)).map(s => s.add)];
-  for (const [j, a] of srcs.entries()) {
-    const added = a === base ? false : j - 1 === fresh ? 'fresh' : true;
+  const own = s => !figs.length || s.fig === figs.indexOf(figs.find(g => g.base === base));
+  const srcs = [[base, -2], ...steps.slice(0, Math.max(0, i + 1)).map((s, j) => [s.add, j]).filter(([, j]) => own(steps[j]))];
+  for (const [a, j] of srcs) {
+    const added = j === -2 ? false : j === fresh ? 'fresh' : true;
     for (const k of LISTS) if (k !== 'equalAngles' && k !== 'equalSides') F[k].push(...arr(a[k]).map(v => ({ v, added })));
     for (const [k, v] of Object.entries(obj(a.labels))) putLabel(F, k, { v: String(v), added });
     for (const [k, v] of Object.entries(obj(a.vars))) putLabel(F, k, { name: String(v), added });
@@ -830,20 +853,23 @@ function drawFigure(F, o) {
 
 let drawIn = false; // set by go(): the next render draws in what the new step adds
 function render() {
+  const fig = shownFig(); if (figs[fig]) useFig(figs[fig]);
+  document.querySelectorAll('#figtabs .tog').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.fig === fig)));
+  const tgt = asked && asked.fig === fig ? asked : null;
   const fresh = drawIn && !problemOnly ? cur : -1; drawIn = false;
   const F = figureAt(problemOnly ? -1 : cur, fresh);
   const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(steps[cur] ? steps[cur].keys : [])]).map(k => refs.get(k)).filter(Boolean);
   // A length or angle the book left unlabeled gets a "?" written on it like a given value; on the answer step, the answer.
-  if (asked && asked.r.type !== 'poly' && asked.r.type !== 'point') {
+  if (tgt && asked.r.type !== 'poly' && asked.r.type !== 'point') {
     const solved = !problemOnly && steps[cur] && steps[cur].answer && asked.value;
     const own = Object.keys(F.labels).find(k => { const r = parseRef(k); return r && r.key === asked.r.key; });
     // keep the book's unknown name: "x" becomes "x = 9"
     const L = own && F.labels[own];
-    if (solved) putLabel(F, asked.ref, L && L.v && !L.name ? { name: L.v, v: asked.value, added: true } : { v: asked.value, added: true });
+    if (solved) putLabel(F, asked.ref, L && L.v && !L.name && !L.added ? { name: L.v, v: asked.value, added: true } : { v: asked.value, added: true });
     else if (!own) putLabel(F, asked.ref, { v: '?', added: false });
   }
   const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
-  const d = drawFigure(F, { nm: names, act, unlabeled: base.unlabeled, target: asked && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
+  const d = drawFigure(F, { nm: names, act, unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
   full = { x: 0, y: 0, w: d.w, h: d.h };
   applyView();
@@ -899,7 +925,8 @@ function setMode(on) {
 function go(i, focus = null) {
   if (!steps.length) return;
   const next = Math.max(0, Math.min(steps.length - 1, i));
-  drawIn = next !== cur; cur = next; solo = focus; render();
+  if (steps[next].fig !== steps[cur].fig) view = null;
+  drawIn = next !== cur; cur = next; viewFig = steps[cur].fig; solo = focus; render();
   try { localStorage.setItem('geo-step', String(cur)); } catch (e) {}
   showStep();
 }
@@ -917,6 +944,15 @@ function showStep() {
   // instant on purpose: content never slides under a thumb that is about to tap again
   window.scrollBy({ top: r.bottom - r.top > bottom - top || r.top < top ? r.top - top : r.bottom - bottom, behavior: 'auto' });
 }
+
+// A figure button opens that figure: its first step, or the bare figure when no step uses it.
+$('figtabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-fig]'); if (!b) return;
+  const n = +b.dataset.fig, first = steps.findIndex(s => s.fig === n);
+  if (n === shownFig()) return;
+  view = null; viewFig = n;
+  if (problemOnly || first < 0) setMode(true); else go(first);
+});
 
 $('steps').addEventListener('click', e => {
   const rule = e.target.closest('.rule');
