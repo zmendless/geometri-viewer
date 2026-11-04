@@ -320,7 +320,7 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
   </nav>
 </div>
 
-<div class="sheet" id="sheet" role="dialog" aria-labelledby="sheetTitle" hidden>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
   <div class="sheet-in">
     <div class="sheet-top">
       <h2 id="sheetTitle"></h2>
@@ -1284,7 +1284,11 @@ function render() {
   $('hl').setAttribute('aria-pressed', String(showHl));
   $('app').classList.toggle('nohl', !showHl);
 
-  document.querySelectorAll('.step').forEach(el => { el.classList.toggle('on', +el.dataset.i === cur); el.classList.toggle('later', +el.dataset.i > cur); });
+  document.querySelectorAll('.step').forEach(el => {
+    const i = +el.dataset.i;
+    el.classList.toggle('on', i === cur); el.classList.toggle('later', i > cur);
+    if (i === cur) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.ref').forEach(el => {
     const here = +el.dataset.i === cur;
     el.classList.toggle('solo', here && el.dataset.k === solo);
@@ -1343,9 +1347,12 @@ function go(i, focus = null) {
 // Screen readers hear the new step's sentence and calculation, not just "2 / 5".
 function sayStep() {
   const el = document.querySelector(`.step[data-i="${cur}"]`); if (!el) return;
-  const c = el.cloneNode(true), math = [...c.querySelectorAll('.math > div')].map(m => m.textContent.trim());
-  c.querySelectorAll('.math, .replay').forEach(m => m.remove());
-  $('say').textContent = [steps[cur].answer ? 'Cevap' : $('count').textContent, c.textContent.trim(), ...math].map(x => x.replace(/[.\s]+$/, '')).filter(Boolean).join('. ');
+  // read what is on screen: letters or side names (not both glued together), without the replay button
+  const c = el.cloneNode(true);
+  c.querySelectorAll($('app').classList.contains('names') ? '.replay, .ref .lt' : '.replay, .ref .nm').forEach(m => m.remove());
+  const math = [...c.querySelectorAll('.math > div')].map(m => m.textContent.trim());
+  c.querySelectorAll('.math').forEach(m => m.remove());
+  $('say').textContent = [steps[cur].answer ? 'Cevap' : $('count').textContent, c.textContent.trim(), ...math].map(x => x.replace(/[.:,\s]+$/, '')).filter(Boolean).join('. ');
 }
 
 // Bring the current step fully into the reading area: below the pinned figure (on a phone, where it sits above
@@ -1401,6 +1408,8 @@ $('names').addEventListener('click', () => {
 $('sheetClose').addEventListener('click', closeRule);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeRule(); return; }
+  // the rule card is modal: Tab stays on its close button until it is closed
+  if (e.key === 'Tab' && !$('sheet').hidden) { e.preventDefault(); $('sheetClose').focus(); return; }
   // ← → step through the solution, unless typing or a card is open
   if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || problemOnly || !$('sheet').hidden || e.target.closest('textarea, input')) return;
   e.preventDefault(); go(cur + (e.key === 'ArrowRight' ? 1 : -1));
