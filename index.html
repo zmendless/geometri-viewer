@@ -106,9 +106,10 @@ pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
 .sheet .link { min-width: 44px; }
 
 @media (min-width: 820px) {
-  .layout { grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: start; }
+  .wrap { max-width: 1480px; }
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(340px, 460px); gap: 40px; align-items: start; }
   .fig { border-bottom: 0; }
-  .fig svg { max-height: 74vh; }
+  .fig svg { max-height: none; }
 }
 ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 @media (max-width: 819px) { #steps { padding-bottom: 35vh; } }
@@ -1146,6 +1147,21 @@ function drawFigure(F, o) {
 }
 
 let drawIn = false; // set by go(): the next render draws in what the new step adds
+// Desktop: the drawing fills the figure column and the screen's height, drawn at 1.2 px per unit so letters stay
+// near book size (about 20px) instead of growing with the column. Phones keep the fixed 400-unit drawing.
+function figDims() {
+  const svg = $('svg'), cw = svg.clientWidth;
+  if ($('app').classList.contains('stepper') || cw < 480) return { W, MAXH, PAD };
+  // below the drawing: the view buttons and the fixed step bar
+  const top = svg.getBoundingClientRect().top + scrollY, avail = Math.max(320, innerHeight - top - 150), w = Math.max(W, cw / 1.2);
+  return { W: w, MAXH: avail * w / cw, PAD };
+}
+let lastDims = '';
+addEventListener('resize', () => requestAnimationFrame(() => {
+  const k = JSON.stringify(figDims());
+  if (k !== lastDims && steps.length) { lastDims = k; view = null; autoView = false; render(); }
+}));
+
 function render() {
   const fig = shownFig(); if (figs[fig]) useFig(figs[fig]);
   document.querySelectorAll('#figtabs .tog').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.fig === fig)));
@@ -1163,7 +1179,7 @@ function render() {
     else if (!own) putLabel(F, asked.ref, { v: '?', added: false });
   }
   const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
-  const d = drawFigure(F, { nm: names, act, unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
+  const d = drawFigure(F, { nm: names, act, dims: figDims(), unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
   full = { x: 0, y: 0, w: d.w, h: d.h }; figP = d.P;
   svg.style.setProperty('--ar', (d.h / d.w).toFixed(3));
@@ -1318,7 +1334,7 @@ function setView(v) {
   applyView();
 }
 
-// On a phone, a step about a small part of a figure zooms gently onto that part (at most 2.2×),
+// On a phone, a step about a small part of a figure zooms gently onto that part (at most 1.6×, and only when it gains 1.3×),
 // and the next step that needs the whole figure zooms back out. Once the student pinches, their zoom wins.
 function stepZoom() {
   if (view && !autoView) return;
@@ -1328,10 +1344,10 @@ function stepZoom() {
     .concat(keys.length && st.moves ? st.moves.flat(2) : []).map(n => figP[n]).filter(Boolean);
   let to = null;
   if (ps.length) {
-    const pad = 46, xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
+    const pad = 56, xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
     const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
-    const ar = full.h / full.w, w = Math.max(x1 - x0, (y1 - y0) / ar, full.w / 2.2);
-    if (w < full.w * .8) to = clampView({ x: (x0 + x1 - w) / 2, y: (y0 + y1 - w * ar) / 2, w, h: w * ar });
+    const ar = full.h / full.w, w = Math.max(x1 - x0, (y1 - y0) / ar, full.w / 1.6);
+    if (w < full.w / 1.3) to = clampView({ x: (x0 + x1 - w) / 2, y: (y0 + y1 - w * ar) / 2, w, h: w * ar });
   }
   const from = view || full, run = ++glide;
   if (!to && !view) return;
@@ -1419,7 +1435,7 @@ function layoutMode() {
   const on = PHONE.matches && $('pastebox').hidden && $('setupbox').hidden, was = $('app').classList.contains('stepper');
   $('app').classList.toggle('stepper', on);
   $('app').classList.toggle('land', on && LAND.matches);
-  if (on !== was && steps.length) showStep();
+  if (on !== was && steps.length) { view = null; render(); showStep(); }
 }
 PHONE.addEventListener('change', layoutMode);
 LAND.addEventListener('change', layoutMode);
