@@ -819,6 +819,23 @@ function drawFigure(F, o) {
       }
     }
   });
+  // Every other labeled angle gets a thin arc, as in the book, so its number can't be read as a neighbour's.
+  // An arc around another labeled angle at the same corner goes further out. angR: how far out each angle's mark reaches.
+  const angR = {}, rightKeys = new Set(F.rights.map(({ v }) => { const r = ref(v); return r && r.key; }));
+  F.equalAngles.forEach((grp, gi) => grp.forEach(({ v }) => { const r = ref(v); if (r) angR[r.key] = 25 + (gi % 2) * 4; }));
+  const angs = Object.entries(F.labels).map(([k, L]) => ({ r: ref(k), added: L.added })).filter(a => a.r && a.r.type === 'angle' && P[a.r.p[0]] && P[a.r.p[1]] && P[a.r.p[2]]);
+  const sweep = a => { const V = P[a.r.p[1]], g = angleGeom(V, P[a.r.p[0]], P[a.r.p[2]]); return { V, g, lo: Math.min(g.a1, g.a1 + g.d), hi: Math.max(g.a1, g.a1 + g.d) }; };
+  const within = (x, s2) => [x, x + 2 * Math.PI, x - 2 * Math.PI].some(y => y > s2.lo - 1e-3 && y < s2.hi + 1e-3);
+  for (const a of angs) {
+    if (angR[a.r.key]) continue;
+    const s2 = sweep(a);
+    if (s2.g.right && rightKeys.has(a.r.key)) { angR[a.r.key] = 17; continue; }
+    const inner = angs.filter(b => b.r.key !== a.r.key && b.r.p[1] === a.r.p[1]).filter(b => { const t = sweep(b); return within(t.lo, s2) && within(t.hi, s2); }).length;
+    const R = 16 + 9 * inner, { V, g } = s2;
+    track(a.added); angR[a.r.key] = R + 3;
+    block(Array.from({ length: 7 }, (_, t) => onArc(V, R, g.a1 + g.d * t / 6)));
+    out += `<path class="${cls('mark', a.added)}" d="M${pt(onArc(V, R, g.a1))} ${arcTo(V, R, g)}"/>`;
+  }
   F.equalSides.forEach((grp, gi) => {
     for (const { v: k, added } of grp) {
       const r = ref(k); if (!r || r.type !== 'seg') continue;
@@ -935,9 +952,13 @@ function drawFigure(F, o) {
       }
     } else if (r.type === 'angle') {
       const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]), cands = [];
-      [0, -.25, .25].forEach((s2, j) => [44, 36, 54, 66].forEach((R, i2) => {
-        const a = g.a1 + g.d * (.5 + s2), c = boxOf(...onArc(V, R, a), v, size);
-        cands.push([c, i2 * 2 + j * 3]);
+      const R0 = (angR[r.key] || 20) + 3; // just outside the angle's arc
+      [0, -.25, .25].forEach((s2, j) => [0, 8, 18, 30].forEach((e, i2) => {
+        const a = g.a1 + g.d * (.5 + s2), d = [Math.cos(a), Math.sin(a)], c = boxOf(0, 0, v, size), R = R0 + e + away(d, c);
+        c.x = V[0] + d[0] * R; c.y = V[1] + d[1] * R;
+        // a spot behind another line, seen from the corner, reads as a different angle
+        const behind = obst.some(sg => segCross(sg, [onArc(V, R0, a), [c.x, c.y]]));
+        cands.push([c, i2 * 2 + j * 3 + (behind ? 100 : 0)]);
       }));
       q = best(cands, [r.p[1]]);
     } else continue;
