@@ -426,6 +426,7 @@ let figs = [], viewFig = 0;
 let isSample = false, asked = null, base = null, names = [], steps = [], cur = 0, solo = null, problemOnly = false, showHl = true, sideNames = {}, customRules = {}, shareText = '';
 let refs = new Map(), colorOf = new Map();
 let full = { x: 0, y: 0, w: W, h: 300 }, view = null; // view: zoomed viewBox, null when showing everything
+let autoView = false, figP = {}, glide = 0; // autoView: the current zoom came from the step, not the student's fingers; figP: points on screen
 
 // Rule cards: written as {key} in step text. Figures use the same format as Claude's figure blocks.
 const PARALLELS = (a, b) => ({ points: { A: [0, 3], B: [6, 3], C: [0, 0], D: [6, 0], E: [4, 3], F: [2, 0], G: [4.667, 4], K: [1.333, -1] }, lines: ['AB', 'CD', 'GK'], equalAngles: [[a, b]], labels: { AB: 'd₁', CD: 'd₂' }, hidePoints: true });
@@ -670,7 +671,7 @@ function load(data, opts = {}) {
   for (const [k, v] of Object.entries(obj(data.rules))) {
     if (obj(v).name) customRules[k] = { name: String(v.name), formula: String(v.formula || ''), note: String(v.note || '') };
   }
-  refs = new Map(); colorOf = new Map(); view = null; closeRule();
+  refs = new Map(); colorOf = new Map(); view = null; autoView = false; glide++; closeRule();
   steps = arr(data.steps).map(s => typeof s === 'string' ? { t: s, add: {}, math: [] } : { t: String((s && s.text) || ''), add: obj(s && s.add), math: arr(s && s.math).map(m => String(m).replace(/\s\*\s/g, ' · ')), fig: s && s.fig, move: s && s.move });
   // "asked": "EC" or { "ref": "EC", "text": "|EC| = x kaç cm'dir?", "value": "9", "fig": 2 }; text is the question's own wording.
   const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), askedFig = ak.fig != null ? figOf(ak.fig) : figs.length - 1;
@@ -1164,7 +1165,7 @@ function render() {
   const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
   const d = drawFigure(F, { nm: names, act, unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
-  full = { x: 0, y: 0, w: d.w, h: d.h };
+  full = { x: 0, y: 0, w: d.w, h: d.h }; figP = d.P;
   svg.style.setProperty('--ar', (d.h / d.w).toFixed(3));
   applyView();
   svg.classList.toggle('dim', act.length > 0);
@@ -1229,7 +1230,7 @@ function go(i, focus = null) {
   if (!steps.length) return;
   const next = Math.max(0, Math.min(steps.length - 1, i));
   if (steps[next].fig !== steps[cur].fig) view = null;
-  drawIn = next !== cur; cur = next; viewFig = steps[cur].fig; solo = focus; render();
+  drawIn = next !== cur; cur = next; viewFig = steps[cur].fig; solo = focus; render(); stepZoom();
   try { localStorage.setItem('geo-step', String(cur)); } catch (e) {}
   showStep(); sayStep();
 }
@@ -1309,14 +1310,42 @@ function applyView() {
   svg.style.touchAction = view ? 'none' : '';
   $('zoomReset').hidden = !view;
 }
+const clampView = v => ({ ...v, x: Math.min(Math.max(v.x, full.x), full.x + full.w - v.w), y: Math.min(Math.max(v.y, full.y), full.y + full.h - v.h) });
 function setView(v) {
-  if (!v || v.w >= full.w * 0.98) view = null;
-  else {
-    v.x = Math.min(Math.max(v.x, full.x), full.x + full.w - v.w);
-    v.y = Math.min(Math.max(v.y, full.y), full.y + full.h - v.h);
-    view = v;
-  }
+  glide++;
+  if (!v || v.w >= full.w * 0.98) { view = null; autoView = false; }
+  else view = clampView(v);
   applyView();
+}
+
+// On a phone, a step about a small part of a figure zooms gently onto that part (at most 2.2×),
+// and the next step that needs the whole figure zooms back out. Once the student pinches, their zoom wins.
+function stepZoom() {
+  if (view && !autoView) return;
+  // everything the step names in its sentence and calculation stays in view, and both shapes of a "move"
+  const st = steps[cur], keys = st && !st.answer && showHl && !problemOnly && $('app').classList.contains('stepper') ? (solo ? [solo] : [...st.keys, ...st.mathKeys]) : [];
+  const ps = keys.map(k => refs.get(k)).filter(Boolean).flatMap(r => r.p)
+    .concat(keys.length && st.moves ? st.moves.flat(2) : []).map(n => figP[n]).filter(Boolean);
+  let to = null;
+  if (ps.length) {
+    const pad = 46, xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
+    const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+    const ar = full.h / full.w, w = Math.max(x1 - x0, (y1 - y0) / ar, full.w / 2.2);
+    if (w < full.w * .8) to = clampView({ x: (x0 + x1 - w) / 2, y: (y0 + y1 - w * ar) / 2, w, h: w * ar });
+  }
+  const from = view || full, run = ++glide;
+  if (!to && !view) return;
+  autoView = !!to;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { view = to; applyView(); return; }
+  const end = to || full, t0 = performance.now();
+  const tick = now => {
+    if (run !== glide) return;
+    const k = Math.min(1, (now - t0) / 420), e = 1 - (1 - k) ** 3, mix = n => from[n] + (end[n] - from[n]) * e;
+    view = k < 1 || to ? { x: mix('x'), y: mix('y'), w: mix('w'), h: mix('h') } : null;
+    applyView();
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 function toSvg(p) {
   const m = $('svg').getScreenCTM();
@@ -1327,7 +1356,7 @@ function zoomAt(from, to, k) {
   const v = { ...(view || full) }, before = toSvg(from);
   v.w = Math.min(Math.max(v.w * k, full.w / 6), full.w);
   v.h = v.w * full.h / full.w;
-  view = v; applyView();
+  view = v; autoView = false; glide++; applyView();
   const after = toSvg(to);
   setView({ ...v, x: v.x + before.x - after.x, y: v.y + before.y - after.y });
 }
@@ -1350,7 +1379,7 @@ svgEl.addEventListener('pointermove', e => {
     const mid = a => ({ x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 });
     const dist = a => Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1;
     zoomAt(mid(prev), mid(now), dist(prev) / dist(now));
-  } else if (now.length === 1 && view && e.buttons) {
+  } else if (now.length === 1 && view && !autoView && e.buttons) {
     const a = toSvg(old), b = toSvg(now[0]);
     setView({ ...view, x: view.x + a.x - b.x, y: view.y + a.y - b.y });
   }
@@ -1359,7 +1388,7 @@ const endPtr = e => {
   if (!ptrs.delete(e.pointerId)) return;
   if (e.type !== 'pointerup' || ptrs.size) return;
   // a one-finger sideways swipe on the unzoomed figure steps through the solution
-  if (moved && !multi && !view && !problemOnly && start) {
+  if (moved && !multi && (!view || autoView) && !problemOnly && start) {
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (Math.abs(dx) > 50 && Math.abs(dy) < Math.abs(dx) * 0.6) go(cur + (dx < 0 ? 1 : -1));
     return;
