@@ -304,7 +304,7 @@ const PROMPT = `Sana bir geometri sorusu gönderdiğimde (genelde fotoğraf), so
   "names": { "EF": "yükseklik", "AB": "taban", "AF": "sol parça", "FB": "sağ parça" },
   "steps": [
     { "text": "Yarı açılara α ve β diyelim; yan yana iki açının toplamı 180°.", "math": ["2α + 2β = 180°", "α + β = 90°", "[∠AEB] = 90°"], "add": { "vars": { "∠EAB": "α", "∠ABE": "β" }, "rights": ["∠AEB"] } },
-    { "text": "Hipotenüse inen yükseklik için {oklid h=EF p=AF k=FB}:", "math": ["[EF]² = [AF] · [FB]", "6² = [AF] · 4", "[AF] = 36 ÷ 4 = 9"], "add": { "labels": { "AF": "9" } } }
+    { "text": "Hipotenüse inen yükseklik için {oklid h=EF p=AF k=FB}:", "math": ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF] · [FB:4]", "[AF] = 36 ÷ 4 = 9"], "add": { "labels": { "AF": "9" } } }
   ],
   "answer": "Alan = [AB] × [EF] = 13 × 6 = 78 cm² → E"
 }
@@ -329,7 +329,8 @@ Kurallar:
 - steps: her adımda tek kısa fikir, sade cümleler. Bahsettiğin HER kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
 - asked: sorunun ne istediği, HER zaman yaz. "ref": uzunluk için "EC", açı için "∠ABC", alan için "ABCD" ya da "△ABC". "text": sorunun soru cümlesi, kitaptaki gibi aynen ("A(ABCD) kaç cm²?", "|EC| = x kaç cm'dir?"). "value": kısa cevap ("78", "9", "40°"). İstenen şey şekilde sarıyla işaretlenir. Kitap bilinmeyene bir ad verdiyse (EC üzerinde "x" gibi) onu labels'a yaz; vermediyse uygulama "?" yazar.
 - Değişkenler: çözüm için gerekiyorsa bilinmeyen bir kenara ya da açıya ad ver (a, x, α...). Adımın add.vars kısmına yaz: "vars": { "AD": "a", "∠DAE": "α" }. Ad şeklin üzerine eğik yazılır ve sonraki adımlarda kalır. Aynı uzunluktaki her kenara aynı adı yaz. Değeri soruyu çözmek için gerekiyorsa bulup add.labels'a yaz; şekilde "a = 6" olarak görünür.
-- math: işlem satırları. Hesap yaptığın her adımda açıklamayı kısa tut, işlemleri "math" listesine her satıra bir adım olacak şekilde yaz: ["h² = p · k", "6² = 9 · 4", "h = 6"]. Çarpma için · kullan. Kenarları [AF] gibi işaretleyebilirsin.
+- math: işlem satırları. Hesap yaptığın her adımda açıklamayı kısa tut, işlemleri "math" listesine her satıra bir adım olacak şekilde yaz. Çarpma için · kullan. Kenarları [AF] gibi işaretle.
+- Sayının nereden geldiği görünsün: bir kenarın ya da açının değerini işleme koyduğunda sayıyı çıplak yazma, [kenar:değer] yaz: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF:9] · [FB:4]", "[AB] = [AF:9] + [FB:4] = 13", "[∠ABC:40°] + [∠BCA:60°] + [∠CAB] = 180°"]. Uygulama sayıyı o kenarın rengiyle yazar ve dokununca kenarı şekilde gösterir. Ara sonuçlar (36 ÷ 4 gibi) çıplak kalabilir.
 - Kurallar: bir adımda bilinen bir kural kullandığında adını süslü parantezle yaz, uygulamada dokununca şekilli bir kart açılır. Kullanılabilenler: {oklid}, {pisagor}, {aciortay} (iç açıortay teoremi), {ikizkenar}, {ic-ters}, {yondes}, {ic-acilar}, {dis-aci}, {paralelkenar-alan}, {ucgen-alan}, {eskenar-dortgen}, {benzerlik}, {dik-kenarortay}, {30-60-90}, {45-45-90}, {ardisik-aciortay}, {cevre-aci}, {teget}. Kuralın kartındaki harfleri bu sorudaki kenarlarla eşleştir ki kartta "h = yükseklik |EF|" görünsün: {oklid h=EF p=AF k=FB}, {pisagor a=AB b=BC c=AC}. Kartlardaki harfler: oklid h p k a b c, pisagor a b c (c hipotenüs), aciortay c b x y, ucgen-alan a h, paralelkenar-alan a h, eskenar-dortgen e f. Örnek: "{oklid h=EF p=AF k=FB} ile [EF]² = [AF] · [FB]". Listede olmayan bir kural için "rules": { "anahtar": { "name": "Kuralın adı", "formula": "formül", "note": "tek cümle açıklama" } } ekle ve adımda {anahtar} yaz. Süslü parantezi başka bir şey için kullanma.
 - answer: sonuç ve doğru şık.
 - JSON geçerli olmalı: çift tırnak, yorum yok, sonda fazladan virgül yok.`;
@@ -348,9 +349,9 @@ const SAMPLE = {
   steps: [
     { text: "Alan için taban ve yükseklik lazım. Yükseklik [EF] = 6 verilmiş, eksik olan taban [AB]. [FB] = 4 belli, [AF]'yi bulmalıyız." },
     { text: "Açıortaylar açıları ikiye böler; yarılara α ve β diyelim. Paralelkenarda yan yana iki açının toplamı 180°. Bu yüzden [△AEB]'de kalan [∠AEB] = 90° ({ardisik-aciortay}).", math: ["2α + 2β = 180°", "α + β = 90°", "[∠AEB] = 180° − (α + β) = 90°"], add: { vars: { "∠DAE": "α", "∠EAB": "α", "∠ABE": "β", "∠EBC": "β" }, rights: ["∠AEB"] } },
-    { text: "[△AEB] dik üçgen ve [EF] hipotenüse inen yükseklik, {oklid h=EF p=AF k=FB}:", math: ["[EF]² = [AF] · [FB]", "6² = [AF] · 4", "[AF] = 36 ÷ 4 = 9"], add: { labels: { AF: "9" } } },
-    { text: "Taban iki parçanın toplamı:", math: ["[AB] = 9 + 4 = 13"], add: { labels: { AB: "13" } } },
-    { text: "{paralelkenar-alan}:", math: ["[AB] · [EF] = 13 · 6 = 78"] }
+    { text: "[△AEB] dik üçgen ve [EF] hipotenüse inen yükseklik, {oklid h=EF p=AF k=FB}:", math: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF] · [FB:4]", "[AF] = 36 ÷ 4 = 9"], add: { labels: { AF: "9" } } },
+    { text: "Taban iki parçanın toplamı:", math: ["[AB] = [AF:9] + [FB:4] = 13"], add: { labels: { AB: "13" } } },
+    { text: "{paralelkenar-alan}:", math: ["[AB] · [EF] = [AB:13] · [EF:6] = 78"] }
   ],
   answer: "A(ABCD) = 78 cm² → E şıkkı"
 };
@@ -502,8 +503,11 @@ function renderText(t, i, inMath = false, noted = new Set()) {
       html += rule ? `<button type="button" class="rule" data-rule="${esc(rk)}" data-map="${esc((map || '').trim())}">${esc(rule.name || rk)}</button>` : fmt(m);
       return;
     }
-    let r = parseRef(br !== undefined ? br : bar);
+    // [AB:7] writes the number 7 in AB's color, so a value in a calculation shows which side it came from.
+    const vi = br !== undefined ? br.indexOf(':') : -1, val = vi > 0 ? br.slice(vi + 1).trim() : '';
+    let r = parseRef(vi > 0 ? br.slice(0, vi) : br !== undefined ? br : bar);
     if (r && bar !== undefined && r.type !== 'seg') r = null;
+    if (r && vi > 0 && (!val || r.type === 'point')) r = null;
     if (!r) { html += fmt(m); return; }
     refs.set(r.key, r); steps[i].keys.add(r.key);
     if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
@@ -512,7 +516,8 @@ function renderText(t, i, inMath = false, noted = new Set()) {
     const said = named && before.trimEnd().toLocaleLowerCase('tr').endsWith(named.toLocaleLowerCase('tr'));
     const keep = said || /^['’]/.test(after); // the name would repeat a word or take the suffix
     let label = esc(letters);
-    if (named && !keep) {
+    if (val) label = `<span class="val">${fmt(val)}</span>`;
+    else if (named && !keep) {
       const note = !inMath && !noted.has(r.key) ? `<span class="nt"> (${esc(named)})</span>` : '';
       noted.add(r.key);
       label = `<span class="lt">${esc(letters)}${note}</span><span class="nm">${esc(atStart ? capTr(named) : named)}</span>`;
