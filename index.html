@@ -56,7 +56,7 @@ h1 { font-size: 1rem; font-weight: 600; margin: 0; text-wrap: balance; }
 
 .panel { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .panel p { margin: 0; color: var(--fg2); font-size: .92rem; }
-textarea, pre { width: 100%; box-sizing: border-box; font: 13px/1.45 var(--mono); background: #f5f6f8; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+textarea, pre, #shareUrl { width: 100%; box-sizing: border-box; font: 13px/1.45 var(--mono); background: #f5f6f8; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 textarea { min-height: 140px; resize: vertical; }
 textarea::placeholder { color: var(--muted); }
 pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
@@ -225,6 +225,7 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
     <button class="link phone-only" id="qToggle" type="button" aria-expanded="false" aria-controls="question">Soru</button>
     <span class="top-end">
       <button class="link phone-only" id="fsBtn" type="button" aria-label="Yatay ve tam ekran"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="11" rx="2"/><path d="M8 3h8M12 3v4"/></svg>Yatay</button>
+      <button class="link" id="shareBtn" type="button" hidden>Paylaş</button>
       <button class="link" id="pasteToggle" type="button" aria-expanded="false">Yapıştır</button>
     </span>
   </div>
@@ -248,6 +249,11 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
       <button class="link" id="sampleBtn" type="button">Örneği göster</button>
       <button class="link" id="pasteSetup" type="button">İlk kez mi? Claude'u ayarla</button>
     </div>
+  </div>
+
+  <div class="panel" id="sharebox" hidden>
+    <p>Bu bağlantıyı kopyalayıp arkadaşına gönder; soruyu ve çözümü aynen açar.</p>
+    <input id="shareUrl" readonly aria-label="Paylaşım bağlantısı">
   </div>
 
   <div class="layout" id="layout">
@@ -389,7 +395,7 @@ const LISTS = ['lines', 'helpers', 'circles', 'rights', 'equalAngles', 'equalSid
 // figs: every figure of the question ({ label, base, names }); base and names are the one being drawn.
 // viewFig: the figure "Sadece soru" shows.
 let figs = [], viewFig = 0;
-let isSample = false, asked = null, base = null, names = [], steps = [], cur = 0, solo = null, problemOnly = false, showHl = true, sideNames = {}, customRules = {};
+let isSample = false, asked = null, base = null, names = [], steps = [], cur = 0, solo = null, problemOnly = false, showHl = true, sideNames = {}, customRules = {}, shareText = '';
 let refs = new Map(), colorOf = new Map();
 let full = { x: 0, y: 0, w: W, h: 300 }, view = null; // view: zoomed viewBox, null when showing everything
 
@@ -619,7 +625,7 @@ function resolvePoints(raw) {
 // A question with several figures (Şekil 1, Şekil 2) lists them in "figures"; each step says which one it is about
 // with "fig": 2 (counting from 1), and steps without it stay on the previous step's figure.
 function load(data, opts = {}) {
-  const many = Array.isArray(data && data.figures) && data.figures.length, list = many ? data.figures : [data];
+  const text = JSON.stringify(data), many = Array.isArray(data && data.figures) && data.figures.length, list = many ? data.figures : [data];
   if (list.some(d => !d || !d.points || typeof d.points !== 'object' || !Object.keys(d.points).length)) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
   sideNames = {};
   figs = list.map((d, n) => {
@@ -655,6 +661,9 @@ function load(data, opts = {}) {
   $('question').textContent = data.question || '';
   $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), '') + `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}</li>`).join('');
   isSample = !!opts.sample;
+  shareText = isSample ? '' : text;
+  $('shareBtn').hidden = isSample;
+  $('sharebox').hidden = true;
   $('intro').hidden = !isSample;
   $('sampleBtn').hidden = isSample;
   // Each step's focus: what it adds or finds (a new line, a found length, a right angle, an equal mark).
@@ -1306,6 +1315,24 @@ $('copyBtn').addEventListener('click', () => {
   const done = () => { $('copyBtn').textContent = 'Kopyalandı'; setTimeout(() => $('copyBtn').textContent = 'Talimatı kopyala', 1800); };
   const fallback = () => { $('setupbox').querySelector('.raw').open = true; const r = document.createRange(); r.selectNodeContents($('prompt')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('copyBtn').textContent = 'Seçildi, şimdi kopyala'; };
   try { navigator.clipboard.writeText(PROMPT).then(done, fallback); } catch (e) { fallback(); }
+});
+
+// Share the problem on screen with a friend: the same kind of link the skill's script makes (#f=, deflate-raw, base64url),
+// pointing at the public viewer, since a friend can't open the private artifact.
+async function shareLink() {
+  const bytes = new Uint8Array(await new Response(new Blob([shareText]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return 'https://zmendless.github.io/geometri-viewer/#f=' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+$('shareBtn').addEventListener('click', async () => {
+  if (!$('sharebox').hidden) { $('sharebox').hidden = true; return; }
+  const btn = $('shareBtn'), url = await shareLink();
+  const say = t => { btn.textContent = t; setTimeout(() => btn.textContent = 'Paylaş', 1800); };
+  if (navigator.share) {
+    try { await navigator.share({ title: $('title').textContent, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(url); say('Kopyalandı'); }
+  catch (e) { $('sharebox').hidden = false; $('shareUrl').value = url; $('shareUrl').focus(); $('shareUrl').select(); }
 });
 
 // Reopen the last pasted problem on the step you left it at; otherwise the example.
