@@ -16,6 +16,7 @@
   --ink: #1a1a1a; --helper: #c2185b; --fill: #f6d3e3; --dimink: #a9adb4; --dimhelper: #e7a9c1; --err: #b42318;
   --target: #ffd23f; /* what the question asks for */
   /* step colors and Claude's orange are dark enough for 3:1+ on the yellow "asked" marking and 4.5:1+ on white */
+  --focus: #2563eb; /* the one thing each step is about */
   --c0: #2563eb; --c1: #db2777; --c2: #15803d; --c3: #7c4a1e; --c4: #7c3aed;
   /* everything Claude's solution adds to the book figure */
   --claude: #c2410c; --claudefill: #fbe3d2; --dimclaude: #f0b493;
@@ -115,8 +116,9 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .step.on { border-left-color: var(--fg); color: var(--fg); }
 .step.answer { font-weight: 600; }
 .math { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line2); font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
-.ref { display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
+.ref { --c: var(--dimink); display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
 .ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
+.ref.focus, .ref.solo { --c: var(--focus); }
 .ref svg { width: 14px; height: 11px; align-self: center; flex: none; }
 .ref .nm, .names .ref .lt { display: none; }
 .names .ref .nm { display: inline; }
@@ -532,7 +534,7 @@ function renderText(t, i, inMath = false, noted = new Set()) {
     refs.set(r.key, r); (inMath && !val ? steps[i].mathKeys : steps[i].keys).add(r.key);
     if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
     const c = `var(--c${colorOf.get(r.key)})`, letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
-    const icon = r.type === 'seg' || r.type === 'point' ? glyph(r.type, c) : ''; // ∠ and △ already say what they are
+    const icon = r.type === 'seg' || r.type === 'point' ? glyph(r.type, 'var(--c)') : ''; // ∠ and △ already say what they are
     const said = named && before.trimEnd().toLocaleLowerCase('tr').endsWith(named.toLocaleLowerCase('tr'));
     const keep = said || /^['’]/.test(after); // the name would repeat a word or take the suffix
     let label = esc(letters);
@@ -542,7 +544,7 @@ function renderText(t, i, inMath = false, noted = new Set()) {
       noted.add(r.key);
       label = `<span class="lt">${esc(letters)}${note}</span><span class="nm">${esc(atStart ? capTr(named) : named)}</span>`;
     }
-    html += `<button type="button" class="ref" data-k="${esc(r.key)}" data-i="${i}" style="--c:${c}">${icon}${label}</button>`;
+    html += `<button type="button" class="ref" data-k="${esc(r.key)}" data-i="${i}">${icon}${label}</button>`;
   });
   return html + fmt(t.slice(last));
 }
@@ -643,6 +645,16 @@ function load(data, opts = {}) {
   isSample = !!opts.sample;
   $('intro').hidden = !isSample;
   $('sampleBtn').hidden = isSample;
+  // Each step's focus: what it adds or finds (a new line, a found length, a right angle, an equal mark).
+  // A step that adds nothing points at the first thing its sentence names.
+  steps.forEach(st => {
+    useFig(figs[st.fig]);
+    const added = new Set(), a = st.add, key = k => { const r = parseRef(k); if (r) added.add(r.key); };
+    for (const l of [...arr(a.lines), ...arr(a.helpers)]) { const p = pathPts(l, names); if (p) p.slice(1).forEach((n, j) => added.add('s:' + [p[j], n].sort())); }
+    [...Object.keys(obj(a.labels)), ...Object.keys(obj(a.vars)), ...arr(a.rights), ...arr(a.fills).map(String), ...arr(a.equalAngles).flat(), ...arr(a.equalSides).flat()].forEach(key);
+    const all = [...st.keys, ...st.mathKeys], hit = all.filter(k => added.has(k));
+    st.focus = new Set(hit.length ? hit : [...st.keys].slice(0, 1).concat(st.keys.size ? [] : [...st.mathKeys].slice(0, 1)));
+  });
   $('figtabs').hidden = figs.length < 2;
   $('figtabs').innerHTML = figs.map((g, n) => `<button class="tog" type="button" data-fig="${n}" aria-pressed="false">${esc(g.label)}</button>`).join('');
   cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
@@ -734,7 +746,7 @@ function drawFigure(F, o) {
   const nm = o.nm, ref = k => parseRef(k, nm), D = o.dims || { W, MAXH, PAD }, act = o.act || [];
   const { s, H, map } = frame(F, o.fit || F.circles, D), P = {};
   for (const [k, v] of Object.entries(F.points)) P[k] = map(v);
-  const col = r => `var(--c${colorOf.get(r.key)})`;
+  const col = () => 'var(--focus)';
   const shown = new Set(), use = ps => ps && ps.forEach(n => shown.add(n));
   let out = '';
 
@@ -881,7 +893,7 @@ function render() {
   const tgt = asked && asked.fig === fig ? asked : null;
   const fresh = drawIn && !problemOnly ? cur : -1; drawIn = false;
   const F = figureAt(problemOnly ? -1 : cur, fresh);
-  const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(!steps[cur] ? [] : steps[cur].keys.size ? steps[cur].keys : steps[cur].mathKeys)]).map(k => refs.get(k)).filter(Boolean);
+  const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(steps[cur] ? steps[cur].focus : [])]).map(k => refs.get(k)).filter(Boolean);
   // A length or angle the book left unlabeled gets a "?" written on it like a given value; on the answer step, the answer.
   if (tgt && asked.r.type !== 'poly' && asked.r.type !== 'point') {
     const solved = !problemOnly && steps[cur] && steps[cur].answer && asked.value;
@@ -904,7 +916,11 @@ function render() {
   $('app').classList.toggle('nohl', !showHl);
 
   document.querySelectorAll('.step').forEach(el => el.classList.toggle('on', +el.dataset.i === cur));
-  document.querySelectorAll('.ref').forEach(el => el.classList.toggle('solo', el.dataset.k === solo && +el.dataset.i === cur));
+  document.querySelectorAll('.ref').forEach(el => {
+    const here = +el.dataset.i === cur;
+    el.classList.toggle('solo', here && el.dataset.k === solo);
+    el.classList.toggle('focus', here && !solo && !!steps[cur] && steps[cur].focus.has(el.dataset.k));
+  });
   const nSteps = steps.filter(s => !s.answer).length, end = cur >= steps.length - 1;
   $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : `${cur + 1} / ${nSteps}`;
   $('app').classList.toggle('no-steps', !steps.length);
