@@ -311,7 +311,8 @@ const PROMPT = `Sana bir geometri sorusu gönderdiğimde (genelde fotoğraf), so
 
 Kurallar:
 - Üst kısım (lines, helpers, rights, equalAngles, equalSides, fills, circles, labels) SADECE soruda verilen şekil olmalı, kitaptaki gibi. Çözümde eklediğin her şeyi (yeni çizgi, yeni dik açı, bulduğun uzunluk, eşitlik işareti) o adımın "add" kısmına koy. Şekil adım adım kurulur ve "Sadece soru" düğmesi sorunun kendisini gösterir.
-- points: her nokta [x, y] olarak (y yukarı). Koordinatları gerçek ölçülere uygun seç: dik açılar dik, eşit kenarlar eşit görünsün, doğru ya da çember üzerindeki nokta gerçekten üzerinde olsun. Çözümde eklediğin noktaları da yaz.
+- points: köşeleri [x, y] olarak yaz (y yukarı). Koordinatları gerçek ölçülere uygun seç: dik açılar dik, eşit kenarlar eşit görünsün. Çözümde eklediğin noktaları da yaz.
+- Köşelerden türeyen noktaları hesaplama, uygulamaya kurdur: "M": "mid AB" (orta nokta), "K": "on AB 0.3" (A'dan B'ye yolun %30'u), "H": "foot E AB" (E'den AB doğrusuna dikmenin ayağı), "P": "inter AC BD" (AC ve BD doğrularının kesişimi). Böylece nokta tam yerinde olur, koordinat hesabıyla vakit kaybetmezsin.
 - lines: siyah çizgiler, "ABCDA" A-B-C-D-A çizer. helpers: pembe/kırmızı yardımcı çizgiler.
 - Şekil okunaklı kalsın: çok kenar ve nokta olunca harfler ve sayılar birbirine girer, şekil okunmaz olur. Bu yüzden:
   - Sadece çözümde gerçekten kullandığın yardımcı noktaları ekle. Kesişim, orta nokta gibi noktaları sadece bir adım onlardan bahsediyorsa ekle.
@@ -532,13 +533,44 @@ function parseInput(text) {
   }
 }
 
+// A point is [x, y] or built from other points, so Claude places the corners and lets the rest follow:
+// "mid AB" midpoint, "on AB 0.3" 30% of the way from A to B, "foot E AB" foot of the perpendicular from E to line AB,
+// "inter AB CD" where lines AB and CD cross. Built points may refer to each other in any order.
+function resolvePoints(raw) {
+  const pts = {}, todo = Object.entries(raw);
+  const split = s => { const ns = Object.keys(raw).sort((x, y) => y.length - x.length), out = []; let r = s;
+    while (r) { const n = ns.find(n => r.startsWith(n)); if (!n) return null; out.push(n); r = r.slice(n.length); } return out; };
+  const build = v => {
+    const [op, ...args] = String(v).trim().split(/\s+/), seg = s => { const p = split(s || ''); return p && p.length === 2 && p.every(n => pts[n]) ? p.map(n => pts[n]) : null; };
+    if (op === 'mid' && seg(args[0])) { const [a, b] = seg(args[0]); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
+    if (op === 'on' && seg(args[0]) && Number.isFinite(+args[1])) { const [a, b] = seg(args[0]), t = +args[1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
+    if (op === 'foot' && pts[args[0]] && seg(args[1])) {
+      const e = pts[args[0]], [a, b] = seg(args[1]), d = [b[0] - a[0], b[1] - a[1]], t = ((e[0] - a[0]) * d[0] + (e[1] - a[1]) * d[1]) / (d[0] * d[0] + d[1] * d[1]);
+      return [a[0] + d[0] * t, a[1] + d[1] * t];
+    }
+    if (op === 'inter' && seg(args[0]) && seg(args[1])) {
+      const [a, b] = seg(args[0]), [c, d] = seg(args[1]), r = [b[0] - a[0], b[1] - a[1]], s = [d[0] - c[0], d[1] - c[1]], den = r[0] * s[1] - r[1] * s[0];
+      if (Math.abs(den) < 1e-9) return null;
+      const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den; return [a[0] + r[0] * t, a[1] + r[1] * t];
+    }
+    return null;
+  };
+  for (let left = todo; left.length;) {
+    const next = [];
+    for (const [k, v] of left) {
+      if (Array.isArray(v)) { if (v.length < 2 || !v.slice(0, 2).every(Number.isFinite)) throw new Error(`Şekilde ${k} noktasının yeri eksik. Claude'a "şekil bloğunu tekrar gönder" yaz.`); pts[k] = v; }
+      else { const p = build(v); if (p) pts[k] = p; else next.push([k, v]); }
+    }
+    if (next.length === left.length) throw new Error(`Şekilde ${next[0][0]} noktası kurulamadı ("${next[0][1]}"). Claude'a "şekil bloğunu tekrar gönder" yaz.`);
+    left = next;
+  }
+  return pts;
+}
+
 // opts: { sample: true for the built-in example, step: the step to open on }
 function load(data, opts = {}) {
-  const pts = data && data.points;
-  if (!pts || typeof pts !== 'object' || !Object.keys(pts).length) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
-  for (const [k, v] of Object.entries(pts)) {
-    if (!Array.isArray(v) || v.length < 2 || !v.slice(0, 2).every(Number.isFinite)) throw new Error(`Şekilde ${k} noktasının yeri eksik. Claude'a "şekil bloğunu tekrar gönder" yaz.`);
-  }
+  if (!data || !data.points || typeof data.points !== 'object' || !Object.keys(data.points).length) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
+  const pts = resolvePoints(data.points);
   names = Object.keys(pts).sort((x, y) => y.length - x.length);
   base = { points: pts, labels: obj(data.labels), unlabeled: new Set(arr(data.unlabeled).map(String)) };
   for (const k of LISTS) base[k] = arr(data[k]);
@@ -736,7 +768,7 @@ function drawFigure(F, o) {
   // highlights of what the current step talks about, drawn over the dimmed figure.
   // A side whose parts are also highlighted (AB with AF and FB) goes underneath as a wide band, so all stay visible.
   const actSegs = act.filter(r => r.type === 'seg');
-  const isWhole = r => actSegs.some(q => inside(q, r));
+  const isWhole = r => r.type === 'seg' && actSegs.some(q => inside(q, r));
   for (const r of [...act].sort((a, b) => isWhole(b) - isWhole(a))) {
     const c = col(r); use(r.p);
     if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-linecap:round;${isWhole(r) ? 'stroke-width:14;stroke-opacity:.35' : 'stroke-width:4'}"/>`;
