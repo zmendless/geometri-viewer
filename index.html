@@ -340,7 +340,7 @@ Kurallar:
 - Bloğu yazmadan önce kontrol et: üst kısımdaki (ya da figures içindeki) her çizgi, yardımcı çizgi, dik açı, işaret ve sayı fotoğraftaki şekilde gerçekten var mı? Kendi çizdiğin bir paralel, dikme, uzatma, köşegen ya da yeni bir nokta oraya girmişse, onu çizdiğin adımın add kısmına taşı. Yoksa daha ilk adımda, hatta "Sadece soru"da görünür ve öğrenci neyin kitapta olduğunu ayırt edemez. Kurduğun noktayı (par, perp, shift...) points'e yazmak sorun değil: nokta, onu kullanan çizgi bir adımda eklenince görünür.
 - names (isteğe bağlı): gerekirse denklemlerde geçen önemli kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
 - En kısa yoldan çöz: sadece sorulan sonuca giden adımları yaz. Önce neye ihtiyaç olduğunu düşün (alan için taban ve yükseklik gibi) ve sadece onları bul. Sonuca katkısı olmayan bir uzunluğu, açıyı ya da değişkeni hesaplama, işaretleme ya da adlandırma.
-- steps: her adımda tek kısa fikir, sade cümleler. Bahsettiğin HER kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
+- steps: her adımda tek kısa fikir, sade cümleler. Şekilde gösterilmesi gereken kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle; uygulama işaretlediğin her şeyi renkli çizer, bu yüzden bir adımda sadece o adımın asıl konusu olan 1-3 şeyi işaretle (dikme çizerken dikme ve indiği kenar yeter). İşaretler: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
 - asked: sorunun ne istediği, HER zaman yaz. "ref": uzunluk için "EC", açı için "∠ABC", alan için "ABCD" ya da "△ABC". "text": sorunun soru cümlesi, kitaptaki gibi aynen ("A(ABCD) kaç cm²?", "|EC| = x kaç cm'dir?"). "value": kısa cevap ("78", "9", "40°"). İstenen şey şekilde sarıyla işaretlenir. Kitap bilinmeyene bir ad verdiyse (EC üzerinde "x" gibi) onu labels'a yaz; vermediyse uygulama "?" yazar.
 - Değişkenler: çözüm için gerekiyorsa bilinmeyen bir kenara ya da açıya ad ver (a, x, α...). Adımın add.vars kısmına yaz: "vars": { "AD": "a", "∠DAE": "α" }. Ad şeklin üzerine eğik yazılır ve sonraki adımlarda kalır. Aynı uzunluktaki her kenara aynı adı yaz. Değeri soruyu çözmek için gerekiyorsa bulup add.labels'a yaz; şekilde "a = 6" olarak görünür.
 - math: işlem satırları. Hesap yaptığın her adımda açıklamayı kısa tut, işlemleri "math" listesine her satıra bir adım olacak şekilde yaz. Çarpma için · kullan. Kenarları [AF] gibi işaretle.
@@ -527,7 +527,9 @@ function renderText(t, i, inMath = false, noted = new Set()) {
     if (r && bar !== undefined && r.type !== 'seg') r = null;
     if (r && vi > 0 && (!val || r.type === 'point')) r = null;
     if (!r) { html += fmt(m); return; }
-    refs.set(r.key, r); steps[i].keys.add(r.key);
+    // The figure lights up what the sentence talks about and values tagged with their side; a plain side in a
+    // calculation stays a colored chip and lights up when tapped, so one small step doesn't paint the whole figure.
+    refs.set(r.key, r); (inMath && !val ? steps[i].mathKeys : steps[i].keys).add(r.key);
     if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
     const c = `var(--c${colorOf.get(r.key)})`, letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
     const icon = r.type === 'seg' || r.type === 'point' ? glyph(r.type, c) : ''; // ∠ and △ already say what they are
@@ -626,7 +628,7 @@ function load(data, opts = {}) {
   const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), askedFig = ak.fig != null ? figOf(ak.fig) : figs.length - 1;
   if (data.answer) steps.push({ t: String(data.answer), add: {}, answer: true, fig: askedFig + 1 });
   let at = 0;
-  steps.forEach(s => { s.keys = new Set(); at = s.fig != null ? figOf(s.fig) : at; s.fig = at; });
+  steps.forEach(s => { s.keys = new Set(); s.mathKeys = new Set(); at = s.fig != null ? figOf(s.fig) : at; s.fig = at; });
   useFig(figs[askedFig]);
   const ar = parseRef(ak.ref || '');
   asked = ar && { r: ar, ref: String(ak.ref), value: ak.value != null ? String(ak.value) : '', fig: askedFig };
@@ -817,9 +819,10 @@ function drawFigure(F, o) {
   // A side whose parts are also highlighted (AB with AF and FB) goes underneath as a wide band, so all stay visible.
   const actSegs = act.filter(r => r.type === 'seg');
   const isWhole = r => r.type === 'seg' && actSegs.some(q => inside(q, r));
-  for (const r of [...act].sort((a, b) => isWhole(b) - isWhole(a))) {
+  for (const r of act) {
     const c = col(r); use(r.p);
-    if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-linecap:round;${isWhole(r) ? 'stroke-width:14;stroke-opacity:.35' : 'stroke-width:4'}"/>`;
+    if (isWhole(r)) continue; // its highlighted parts already cover it
+    if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-linecap:round;stroke-width:4"/>`;
     else if (r.type === 'poly') out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-width:3;stroke-linejoin:round"/>`;
     else if (r.type === 'angle') {
       const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
@@ -878,7 +881,7 @@ function render() {
   const tgt = asked && asked.fig === fig ? asked : null;
   const fresh = drawIn && !problemOnly ? cur : -1; drawIn = false;
   const F = figureAt(problemOnly ? -1 : cur, fresh);
-  const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(steps[cur] ? steps[cur].keys : [])]).map(k => refs.get(k)).filter(Boolean);
+  const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(!steps[cur] ? [] : steps[cur].keys.size ? steps[cur].keys : steps[cur].mathKeys)]).map(k => refs.get(k)).filter(Boolean);
   // A length or angle the book left unlabeled gets a "?" written on it like a given value; on the answer step, the answer.
   if (tgt && asked.r.type !== 'poly' && asked.r.type !== 'point') {
     const solved = !problemOnly && steps[cur] && steps[cur].answer && asked.value;
