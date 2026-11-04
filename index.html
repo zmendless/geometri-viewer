@@ -323,12 +323,11 @@ Kurallar:
 - Köşelerden türeyen noktaları hesaplama, uygulamaya kurdur: "M": "mid AB" (orta nokta), "K": "on AB 0.3" (A'dan B'ye yolun %30'u), "H": "foot E AB" (E'den AB doğrusuna dikmenin ayağı), "P": "inter AC BD" (AC ve BD doğrularının kesişimi), "F": "par E AB CD" (E'den AB'ye çizilen paralelin CD doğrusunu kestiği yer), "G": "perp E AB CD" (E'den AB'ye çizilen dikmenin CD doğrusunu kestiği yer), "D": "shift C BA" (C'yi B→A kadar kaydır: paralelkenarın dördüncü köşesi). "on AB 1.4" gibi 1'den büyük sayı kenarı B'nin ötesine uzatır. Böylece nokta tam yerinde olur, koordinat hesabıyla vakit kaybetmezsin.
 - Kendi çizimlerin: çözüm kolaylaşıyorsa şekle yardımcı çizim eklemekten çekinme. Örneğin bir noktadan bir kenara paralel ya da dik çiz, kenarı uzat, köşegen ya da yükseklik çiz, üçgeni paralelkenara tamamla, çemberin merkezini yarıçapla birleştir. Yeni noktayı yukarıdaki yollarla kur, çizgiyi o adımın add.helpers kısmına yaz; uygulama onu turuncu kesikli çizer. Çizdiğin şeyin sağladığını da işaretle: paralel çizdiysen oluşan eş açıları add.equalAngles'a, diklik varsa add.rights'a ekle ve adımda kuralın adını yaz ({ic-ters}, {yondes}). Adım metninde ne çizdiğini açıkça söyle: "[E]'den [AB]'ye paralel [EF]'yi çizelim." Sadece çözüme gerçekten yardım eden çizimleri ekle.
 - lines: siyah çizgiler, "ABCDA" A-B-C-D-A çizer. helpers: pembe/kırmızı yardımcı çizgiler.
-- ÇOK ÖNEMLİ — çakışma kontrolü: şekli göndermeden önce hiçbir şeyin üst üste binmediğini kontrol et. Şekil telefonda yaklaşık 400 piksel genişliğe sığdırılır; harfler ve sayılar 14 piksel kadardır. Şunlar şekli bozar ve okunmaz yapar, hiçbirine izin verme:
-  - İki nokta harfi birbirine değiyor (noktalar şekil boyunun yaklaşık %7'sinden yakın).
-  - İki sayı ya da değişken üst üste biniyor (iki etiketli kenarın ortaları çok yakın).
-  - Bir sayı sığmayacak kadar kısa bir kenara yazılmış.
-  - Bir harf, sayı ya da işaret başka bir çizginin, açı yayının ya da çentiğin üstüne düşüyor.
-  Çakışma varsa koordinatları aç (şekli germek serbest, kitaptaki oranları bozmadan), gereksiz harfi "unlabeled" yap ya da etiketi kaldır. Bağlantı betiği nokta, sayı ve kısa kenar çakışmalarını ölçer ve hata verir; hepsini düzeltmeden bağlantı vermez. Betiğin göremediklerini (çizgi üstüne düşen harf, iç içe açı yayları) sen kontrol et.
+- ÇOK ÖNEMLİ — çakışma kontrolü: şekil telefonda okunaklı olmalı, hiçbir şey üst üste binmemeli. Uygulama harfleri ve sayıları çizgilerin, işaretlerin ve birbirlerinin üstüne düşmeyecek yerlere kendisi yerleştirir; senin işin ona yer bırakmak:
+  - İki noktayı birbirine çok yakın koyma (şekil boyunun yaklaşık %5'inden yakın olmasın); gerekiyorsa birini "unlabeled" yap.
+  - Çok kısa bir kenara sayı yazma; şekli biraz germek serbest (kitaptaki oranları bozmadan).
+  - Bir köşede iç içe çok fazla açı yayı ve sayı toplama.
+  Bağlantı betiği yakın noktaları ve kısa kenarları ölçer ve hata verir.
 - Şekil okunaklı kalsın: çok kenar ve nokta olunca harfler ve sayılar birbirine girer, şekil okunmaz olur. Bu yüzden:
   - Sadece çözümde gerçekten kullandığın yardımcı noktaları ekle. Kesişim, orta nokta gibi noktaları sadece bir adım onlardan bahsediyorsa ekle.
   - Harfini yazmaya gerek olmayan yardımcı noktaları "unlabeled" listesine koy: "unlabeled": ["K", "L"]. Nokta çizilir ama harfi yazılmaz. Adımlarda adı geçen noktaları bu listeye koyma.
@@ -755,6 +754,9 @@ function drawFigure(F, o) {
   const col = () => 'var(--focus)';
   const shown = new Set(), use = ps => ps && ps.forEach(n => shown.add(n));
   let out = '';
+  // What letters and numbers must not sit on: every drawn line and mark (as screen segments), and labels already placed.
+  const obst = [], boxes = [];
+  const block = ps => ps.slice(1).forEach((q, j) => obst.push([ps[j], q]));
 
   const cls = (name, added) => added ? `${name} add${added === 'fresh' ? ' fresh' : ''}` : name;
   let masks = 0;
@@ -779,12 +781,14 @@ function drawFigure(F, o) {
   }
   for (const { v: c, added } of F.circles) {
     const o = P[c.center]; if (!o) continue;
-    use([c.center]); out += `<circle class="${cls('base', track(added))}" cx="${f(o[0])}" cy="${f(o[1])}" r="${f(radius(F, c) * s)}"/>`;
+    const rr = radius(F, c) * s;
+    block(Array.from({ length: 49 }, (_, t) => onArc(o, rr, t * Math.PI / 24)));
+    use([c.center]); out += `<circle class="${cls('base', track(added))}" cx="${f(o[0])}" cy="${f(o[1])}" r="${f(rr)}"/>`;
   }
   for (const kind of ['lines', 'helpers']) {
     for (const { v: l, added } of F[kind]) {
       const p = pathPts(l, nm); if (!p) continue;
-      use(p);
+      use(p); block(p.map(n => P[n]));
       const pts = p.map(n => pt(P[n])).join(' ');
       if (added === 'fresh') {
         // revealed through a mask the pen stroke draws, so dashed lines draw in too
@@ -798,6 +802,7 @@ function drawFigure(F, o) {
     const r = ref(k); if (!r || r.type !== 'angle') continue;
     use(r.p); track(added);
     const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]), q = squarePts(V, g, 12), m = squarePts(V, g, 6)[1];
+    block(q);
     out += `<polyline class="${cls('mark', added)}" points="${q.map(pt).join(' ')}"/><circle class="${cls('dot', added)}" cx="${f(m[0])}" cy="${f(m[1])}" r="1.6"/>`;
   }
   F.equalAngles.forEach((grp, gi) => {
@@ -805,6 +810,7 @@ function drawFigure(F, o) {
       const r = ref(k); if (!r || r.type !== 'angle') continue;
       use(r.p); track(added);
       const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]), R = 20 + (gi % 2) * 4, c = cls('mark', added);
+      block(Array.from({ length: 7 }, (_, t) => onArc(V, R + 4, g.a1 + g.d * t / 6)));
       out += `<path class="${c}" d="M${pt(onArc(V, R, g.a1))} ${arcTo(V, R, g)}"/>`;
       const n = gi + 1, am = g.a1 + g.d / 2, step = 7 / R;
       for (let t = 0; t < n; t++) {
@@ -850,40 +856,97 @@ function drawFigure(F, o) {
   }
   const all = Object.values(P), cx = all.reduce((a, p) => a + p[0], 0) / all.length, cy = all.reduce((a, p) => a + p[1], 0) / all.length;
   const labelSegs = Object.keys(F.labels).map(ref).filter(r => r && r.type === 'seg');
+  for (const k of Object.keys(F.labels)) { const r = ref(k); if (r && r.type !== 'point' && r.type !== 'poly') use(r.p); }
+
+  // Label placement: each letter and number tries a few spots and takes the one that touches the fewest lines,
+  // marks, points and labels already placed, preferring where the book would write it (outside the figure,
+  // a number at the middle of its side). Boxes are rough text sizes in px; obst holds everything drawn so far.
+  const boxOf = (x, y, text, size) => ({ x, y, w: Math.max(String(text).length, 1) * size * 0.6 + 4, h: size + 2 });
+  const crosses = ([a, b], q) => { // segment ab against box q (Liang–Barsky)
+    let t0 = 0, t1 = 1; const dx = b[0] - a[0], dy = b[1] - a[1];
+    for (const [p, v] of [[-dx, a[0] - (q.x - q.w / 2)], [dx, q.x + q.w / 2 - a[0]], [-dy, a[1] - (q.y - q.h / 2)], [dy, q.y + q.h / 2 - a[1]]]) {
+      if (p === 0) { if (v < 0) return false; continue; }
+      const t = v / p;
+      if (p < 0) { if (t > t1) return false; t0 = Math.max(t0, t); } else { if (t < t0) return false; t1 = Math.min(t1, t); }
+    }
+    return true;
+  };
+  const segCross = ([a, b], [c, d]) => {
+    const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+  };
+  const overlap = (p, q) => Math.abs(p.x - q.x) < (p.w + q.w) / 2 && Math.abs(p.y - q.y) < (p.h + q.h) / 2;
+  const clash = (q, own = []) => {
+    let n = 0;
+    for (const sg of obst) if (crosses(sg, q)) n += 1;
+    for (const b of boxes) if (overlap(b, q)) n += 3;
+    for (const [k, p] of Object.entries(P)) if (!own.includes(k) && shown.has(k) && Math.abs(p[0] - q.x) < q.w / 2 + 3 && Math.abs(p[1] - q.y) < q.h / 2 + 3) n += 3;
+    if (q.x - q.w / 2 < -6 || q.x + q.w / 2 > D.W + 6 || q.y - q.h / 2 < -6 || q.y + q.h / 2 > H + 6) n += 2; // the frame has some slack
+    return n;
+  };
+  // candidates: [box, preference cost]; the lowest clash count wins, then the lowest cost
+  const best = (cands, own) => {
+    let pick = null, score = Infinity;
+    for (const [q, cost] of cands) { const sc = clash(q, own) * 100 + cost; if (sc < score) { score = sc; pick = q; } }
+    boxes.push(pick); return pick;
+  };
+  const away = (d, q) => Math.abs(d[0]) * q.w / 2 + Math.abs(d[1]) * q.h / 2; // distance from p to clear the box along d
+
+  // Point letters first: they are what every step names.
+  const letters = o.hidePoints ? [] : [...shown].filter(n => !(o.unlabeled && o.unlabeled.has(n))), spots = {};
+  for (const k of letters) {
+    const p = P[k]; let d0 = [p[0] - cx, p[1] - cy]; const l = Math.hypot(...d0);
+    d0 = l < 1e-6 ? [0, -1] : [d0[0] / l, d0[1] / l];
+    const a0 = Math.atan2(d0[1], d0[0]), cands = [];
+    for (let t = 0; t < 16; t++) {
+      const a = a0 + t * Math.PI / 8, d = [Math.cos(a), Math.sin(a)], q = boxOf(0, 0, k, 17), r = 5 + away(d, q);
+      q.x = p[0] + d[0] * r; q.y = p[1] + d[1] * r;
+      cands.push([q, Math.min(t, 16 - t)]);
+    }
+    spots[k] = best(cands, [k]);
+  }
   for (const [k, L] of Object.entries(F.labels)) {
-    const v = labelText(L), added = L.added;
+    const v = labelText(L), added = L.added, size = L.name ? 17 : 15;
     const r = ref(k); if (!r) continue;
-    let x, y;
+    let q = null;
     if (r.type === 'seg') {
-      const a = P[r.p[0]], b = P[r.p[1]], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      let n = [-(b[1] - a[1]), b[0] - a[0]]; const l = Math.hypot(...n) || 1; n = [n[0] / l, n[1] / l];
+      const a = P[r.p[0]], b = P[r.p[1]], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], u = unit(a, b);
+      let n = [-u[1], u[0]];
       if ((m[0] - cx) * n[0] + (m[1] - cy) * n[1] < 0) n = [-n[0], -n[1]];
-      if (labelSegs.some(q => inside(q, r))) {
-        // A total over labeled parts: book-style dimension line further out, with end ticks.
-        const o = 34, a2 = [a[0] + n[0] * o, a[1] + n[1] * o], b2 = [b[0] + n[0] * o, b[1] + n[1] * o], c = cls('mark', added);
-        out += `<line class="${c}" x1="${f(a2[0])}" y1="${f(a2[1])}" x2="${f(b2[0])}" y2="${f(b2[1])}"/>`;
-        for (const e of [a2, b2]) out += `<line class="${c}" x1="${f(e[0] - n[0] * 5)}" y1="${f(e[1] - n[1] * 5)}" x2="${f(e[0] + n[0] * 5)}" y2="${f(e[1] + n[1] * 5)}"/>`;
-        [x, y] = [m[0] + n[0] * o, m[1] + n[1] * o];
-      } else {
-        [x, y] = [m[0] + n[0] * 14, m[1] + n[1] * 14];
-        // Slide along the segment if a point label sits on this spot (e.g. a midpoint).
-        if (Object.values(P).some(q => Math.hypot(q[0] - m[0], q[1] - m[1]) < 20)) {
-          const u = unit(a, b); x += u[0] * 30; y += u[1] * 30;
+      if (labelSegs.some(s2 => inside(s2, r))) {
+        // A total over labeled parts: book-style dimension line further out, with end ticks, when that spot is free.
+        const o2 = 34, a2 = [a[0] + n[0] * o2, a[1] + n[1] * o2], b2 = [b[0] + n[0] * o2, b[1] + n[1] * o2];
+        const dq = boxOf(m[0] + n[0] * o2, m[1] + n[1] * o2, v, size);
+        if (!obst.some(sg => segCross(sg, [a2, b2])) && clash(dq) === 0) {
+          const c = cls('mark', added);
+          out += `<line class="${c}" x1="${f(a2[0])}" y1="${f(a2[1])}" x2="${f(b2[0])}" y2="${f(b2[1])}"/>`;
+          for (const e of [a2, b2]) out += `<line class="${c}" x1="${f(e[0] - n[0] * 5)}" y1="${f(e[1] - n[1] * 5)}" x2="${f(e[0] + n[0] * 5)}" y2="${f(e[1] + n[1] * 5)}"/>`;
+          obst.push([a2, b2]); boxes.push(dq); q = dq;
         }
       }
+      if (!q) {
+        const cands = [];
+        [.5, .4, .6, .3, .7, .22, .78].forEach((t, j) => [n, [-n[0], -n[1]]].forEach((d, side) => {
+          const c = boxOf(0, 0, v, size), r2 = 4 + away(d, c);
+          c.x = a[0] + (b[0] - a[0]) * t + d[0] * r2; c.y = a[1] + (b[1] - a[1]) * t + d[1] * r2;
+          cands.push([c, j * 2 + side * 3]);
+        }));
+        q = best(cands, []);
+      }
     } else if (r.type === 'angle') {
-      const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
-      let b = [g.u1[0] + g.u2[0], g.u1[1] + g.u2[1]]; const l = Math.hypot(...b);
-      b = l < 1e-6 ? [-g.u1[1], g.u1[0]] : [b[0] / l, b[1] / l];
-      [x, y] = [V[0] + b[0] * 44, V[1] + b[1] * 44];
+      const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]), cands = [];
+      [0, -.25, .25].forEach((s2, j) => [44, 36, 54, 66].forEach((R, i2) => {
+        const a = g.a1 + g.d * (.5 + s2), c = boxOf(...onArc(V, R, a), v, size);
+        cands.push([c, i2 * 2 + j * 3]);
+      }));
+      q = best(cands, [r.p[1]]);
     } else continue;
-    use(r.p); track(added);
-    out += `<text class="${cls('given', added)}${L.name ? ' var' : ''}" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${esc(v)}</text>`;
+    track(added);
+    out += `<text class="${cls('given', added)}${L.name ? ' var' : ''}" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(v)}</text>`;
   }
-  for (const k of o.hidePoints ? [] : [...shown].filter(n => !(o.unlabeled && o.unlabeled.has(n)))) {
-    const p = P[k]; let d = [p[0] - cx, p[1] - cy]; const l = Math.hypot(...d);
-    d = l < 1e-6 ? [0, -1] : [d[0] / l, d[1] / l];
-    out += `<circle class="dot" cx="${f(p[0])}" cy="${f(p[1])}" r="2.2"/><text class="plabel" x="${f(p[0] + d[0] * 18)}" y="${f(p[1] + d[1] * 18)}" text-anchor="middle" dominant-baseline="central">${esc(k)}</text>`;
+  for (const k of letters) {
+    const p = P[k], q = spots[k];
+    out += `<circle class="dot" cx="${f(p[0])}" cy="${f(p[1])}" r="2.2"/><text class="plabel" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(k)}</text>`;
   }
   if (tg && tg.type === 'poly' && o.target.value) {
     const ps = tg.p.map(n => P[n]), x = ps.reduce((a, p) => a + p[0], 0) / ps.length, y = ps.reduce((a, p) => a + p[1], 0) / ps.length;
