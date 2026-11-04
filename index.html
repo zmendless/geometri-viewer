@@ -317,6 +317,12 @@ Kurallar:
 - points: köşeleri [x, y] olarak yaz (y yukarı). Koordinatları gerçek ölçülere uygun seç: dik açılar dik, eşit kenarlar eşit görünsün. Çözümde eklediğin noktaları da yaz.
 - Köşelerden türeyen noktaları hesaplama, uygulamaya kurdur: "M": "mid AB" (orta nokta), "K": "on AB 0.3" (A'dan B'ye yolun %30'u), "H": "foot E AB" (E'den AB doğrusuna dikmenin ayağı), "P": "inter AC BD" (AC ve BD doğrularının kesişimi). Böylece nokta tam yerinde olur, koordinat hesabıyla vakit kaybetmezsin.
 - lines: siyah çizgiler, "ABCDA" A-B-C-D-A çizer. helpers: pembe/kırmızı yardımcı çizgiler.
+- ÇOK ÖNEMLİ — çakışma kontrolü: şekli göndermeden önce hiçbir şeyin üst üste binmediğini kontrol et. Şekil telefonda yaklaşık 400 piksel genişliğe sığdırılır; harfler ve sayılar 14 piksel kadardır. Şunlar şekli bozar ve okunmaz yapar, hiçbirine izin verme:
+  - İki nokta harfi birbirine değiyor (noktalar şekil boyunun yaklaşık %7'sinden yakın).
+  - İki sayı ya da değişken üst üste biniyor (iki etiketli kenarın ortaları çok yakın).
+  - Bir sayı sığmayacak kadar kısa bir kenara yazılmış.
+  - Bir harf, sayı ya da işaret başka bir çizginin, açı yayının ya da çentiğin üstüne düşüyor.
+  Çakışma varsa koordinatları aç (şekli germek serbest, kitaptaki oranları bozmadan), gereksiz harfi "unlabeled" yap ya da etiketi kaldır. Bağlantı betiği nokta, sayı ve kısa kenar çakışmalarını ölçer ve hata verir; hepsini düzeltmeden bağlantı vermez. Betiğin göremediklerini (çizgi üstüne düşen harf, iç içe açı yayları) sen kontrol et.
 - Şekil okunaklı kalsın: çok kenar ve nokta olunca harfler ve sayılar birbirine girer, şekil okunmaz olur. Bu yüzden:
   - Sadece çözümde gerçekten kullandığın yardımcı noktaları ekle. Kesişim, orta nokta gibi noktaları sadece bir adım onlardan bahsediyorsa ekle.
   - Harfini yazmaya gerek olmayan yardımcı noktaları "unlabeled" listesine koy: "unlabeled": ["K", "L"]. Nokta çizilir ama harfi yazılmaz. Adımlarda adı geçen noktaları bu listeye koyma.
