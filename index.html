@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<title>Geometri Görüntüleyici</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* layout: one quiet column; figure pinned on top, steps beneath, step controls fixed in the thumb zone at the bottom;
+   two columns on wide screens. Single light theme on purpose: the figure is a printed page. */
+:root {
+  --bg: #ffffff; --fg: #16181c; --fg2: #3d4148; --muted: #646a73; --line: #ececee; --line2: #d5d8dd; --off: #b9bdc4;
+  --ink: #1a1a1a; --helper: #c2185b; --fill: #f6d3e3; --dimink: #a9adb4; --dimhelper: #e7a9c1; --err: #b42318;
+  --target: #ffd23f; /* what the question asks for */
+  /* step colors and Claude's orange are dark enough for 3:1+ on the yellow "asked" marking and 4.5:1+ on white */
+  --c0: #2563eb; --c1: #db2777; --c2: #15803d; --c3: #7c4a1e; --c4: #7c3aed;
+  /* everything Claude's solution adds to the book figure */
+  --claude: #c2410c; --claudefill: #fbe3d2; --dimclaude: #f0b493;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fig: Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+  --bar: 64px; /* height of the bottom step bar, without the safe area */
+  color-scheme: light;
+}
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--sans); caret-color: var(--fg); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+::selection { background: #ffe58a; color: var(--fg); }
+.wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px calc(var(--bar) + 40px + env(safe-area-inset-bottom, 0px)); }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+button:focus-visible, .step:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 4px; }
+@media (hover: hover) {
+  .tog:not([aria-pressed="true"]):hover { border-color: var(--fg2); color: var(--fg); }
+  .arrow:not(:disabled):not(#next):hover, #next.restart:hover { background: #f5f6f8; }
+  .rule:hover { text-decoration-style: solid; }
+}
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+h1 { font-size: 1rem; font-weight: 600; margin: 0; text-wrap: balance; }
+.link { color: var(--fg2); font-size: .92rem; font-weight: 600; min-height: 44px; padding: 0 2px; }
+.link:hover { color: var(--fg); }
+#question { color: var(--fg2); font-size: .95rem; margin: 2px 0 0; white-space: pre-line; }
+.asked { font-size: .95rem; margin: 8px 0 0; }
+.tgt-chip { background: var(--target); border-radius: 4px; padding: 1px 6px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* first visit: the example problem says it is one, and shows how to bring your own */
+.intro { margin-top: 10px; padding: 10px 12px; background: #f5f6f8; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
+.intro p { margin: 0; font-size: .92rem; color: var(--fg2); }
+.intro p b { color: var(--fg); }
+.intro .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.primary { min-height: 44px; padding: 0 18px; border-radius: 10px; background: var(--fg); color: var(--bg); font-weight: 600; font-size: .95rem; }
+.primary:hover { background: #2c3038; }
+
+.panel { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.panel p { margin: 0; color: var(--fg2); font-size: .92rem; }
+textarea, pre { width: 100%; box-sizing: border-box; font: 13px/1.45 var(--mono); background: #f5f6f8; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+textarea { min-height: 140px; resize: vertical; }
+textarea::placeholder { color: var(--muted); }
+pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
+.pbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+#err { color: var(--err); font-size: .92rem; font-weight: 600; }
+#err:empty { display: none; }
+
+.layout { display: grid; gap: 8px; margin-top: 10px; }
+.fig { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.fig svg { display: block; width: 100%; max-height: 46vh; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.legend { display: block; text-align: right; margin: -2px 0 6px; color: var(--claude); font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.legend::before { content: ""; display: inline-block; width: 16px; border-top: 2px dashed var(--claude); vertical-align: middle; margin-right: 6px; }
+.zoomreset { position: absolute; top: 0; right: 0; font-size: .85rem; font-weight: 600; background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 0 14px; min-height: 44px; }
+
+/* view switches: one look for all three, pressed = filled */
+.toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+.tog { min-height: 40px; padding: 0 14px; border: 1px solid var(--line2); border-radius: 999px; font-size: .88rem; font-weight: 600; color: var(--fg2); position: relative; }
+.tog::after { content: ""; position: absolute; inset: -2px 0; } /* 44px tap height */
+.tog[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+
+/* step controls: fixed in the thumb zone, same place on every step */
+.stepbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+.stepbar-in { max-width: 560px; margin: 0 auto; height: var(--bar); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+.arrow { width: 72px; height: 52px; display: grid; place-items: center; border-radius: 12px; color: var(--fg); }
+.arrow svg { width: 26px; height: 26px; }
+#prev { justify-self: start; }
+#next { justify-self: end; background: var(--fg); color: var(--bg); }
+#next.restart { background: none; color: var(--fg); border: 1px solid var(--line2); }
+.arrow:disabled, #next:disabled { color: var(--off); background: none; border: 0; cursor: default; }
+#count { min-width: 7ch; text-align: center; color: var(--fg2); font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.rule { font-weight: 600; text-decoration: underline dotted 2px; text-underline-offset: 4px; position: relative; padding: 2px 0; }
+.rule::after { content: ""; position: absolute; inset: -8px -2px; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-height: 72vh; overflow: auto; background: var(--bg); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .08); padding-top: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sheet-in { max-width: 520px; margin: 0 auto; }
+.sheet-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+#sheetFig { display: block; width: 100%; max-width: 280px; margin: 6px auto 0; }
+.formula { font-size: 1.15rem; font-weight: 600; white-space: pre-line; text-align: center; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.note { color: var(--fg2); font-size: .92rem; margin: 0; }
+.note:empty { display: none; }
+.mapping { margin: 0 0 10px; padding: 8px 12px; background: #f5f6f8; border-radius: 8px; font-size: .95rem; display: flex; flex-direction: column; gap: 2px; }
+.mapping b { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; font-size: 1.05rem; }
+.mapping span { border-bottom: 2px solid var(--c, transparent); font-weight: 600; }
+.sheet .link { min-width: 44px; }
+
+@media (min-width: 820px) {
+  .layout { grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: start; }
+  .fig { border-bottom: 0; }
+  .fig svg { max-height: 74vh; }
+}
+ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
+@media (max-width: 819px) { #steps { padding-bottom: 35vh; } }
+.step { padding: 12px 0 12px 14px; border-left: 2px solid transparent; color: var(--muted); cursor: pointer; overflow-wrap: anywhere; line-height: 1.95; }
+.step.on { border-left-color: var(--fg); color: var(--fg); }
+.step.answer { font-weight: 600; }
+.math { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line2); font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
+.ref { display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
+.ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
+.ref svg { width: 14px; height: 11px; align-self: center; flex: none; }
+.ref .nm, .names .ref .lt { display: none; }
+.names .ref .nm { display: inline; }
+.ref .nt { font-weight: 400; color: var(--muted); }
+.ref.solo { background: color-mix(in srgb, var(--c) 22%, transparent); border-radius: 3px 3px 0 0; }
+.step:not(.on) .ref, .nohl .ref { border-bottom-color: transparent; color: inherit; }
+.nohl .ref.solo { background: none; }
+.problem-only #steps, .problem-only .stepbar, .problem-only #hl, .problem-only #names { display: none; }
+footer { margin-top: 32px; }
+.howto { list-style: decimal; padding-left: 1.4em; margin: 4px 0 0; display: flex; flex-direction: column; gap: 12px; font-size: .95rem; color: var(--fg2); }
+.howto b { color: var(--fg); }
+.howto .primary { margin-top: 8px; }
+.raw summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: .92rem; font-weight: 600; color: var(--fg2); }
+/* while setting up, the figure and step bar step aside */
+.setup-open .fig { position: static; }
+.setup-open .stepbar, .no-steps .stepbar { display: none; }
+
+svg .base { stroke: var(--ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+svg .helper { stroke: var(--helper); stroke-width: 2.2; fill: none; stroke-linecap: round; }
+svg .mark { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .dot { fill: var(--ink); }
+svg .plabel { fill: var(--ink); font: 400 17px var(--fig); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+svg .given { fill: var(--ink); font: 400 15px var(--fig); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+svg.dim .base { stroke: var(--dimink); }
+svg.dim .helper { stroke: var(--dimhelper); }
+svg .base.add, svg .helper.add { stroke: var(--claude); stroke-dasharray: 7 5; }
+svg.dim .base.add, svg.dim .helper.add { stroke: var(--dimclaude); }
+svg .mark.add { stroke: var(--claude); stroke-width: 1.6; }
+svg .dot.add { fill: var(--claude); }
+svg .given.add { fill: var(--claude); font-weight: 700; }
+svg .given.answer { font-size: 22px; }
+svg .given.var { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 17px; }
+svg line.tgt { stroke: var(--target); stroke-width: 12; stroke-linecap: round; stroke-opacity: .55; }
+svg polygon.tgt { fill: var(--target); fill-opacity: .22; stroke: none; }
+svg path.tgt, svg circle.tgt { fill: var(--target); fill-opacity: .5; stroke: none; }
+
+/* ---- phone: one screen, no page scroll. The figure and the current step are always both in view. ----
+   JS adds .stepper on phone-sized screens while no panel is open, and .land when the phone is sideways. */
+.phone-only { display: none; }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+#fsBtn { display: none; align-items: center; gap: 6px; }
+#fsBtn svg { width: 18px; height: 18px; }
+.toast { position: fixed; left: 50%; bottom: calc(var(--bar) + 16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 25; margin: 0; max-width: min(90vw, 360px); padding: 10px 14px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: .9rem; text-align: center; }
+html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hidden; }
+#app.stepper { height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); box-sizing: border-box; padding-block: 4px 0; display: flex; flex-direction: column; }
+.stepper .phone-only, .stepper #fsBtn { display: inline-flex; align-items: center; }
+.stepper h1 { display: none; }
+.stepper .top { gap: 8px; }
+.stepper #qToggle::after { content: " ▾"; }
+.stepper #qToggle[aria-expanded="true"]::after { content: " ▴"; }
+.stepper #question { display: none; }
+.stepper.q-open #question { display: block; max-height: 30vh; overflow-y: auto; }
+.stepper .asked { margin-top: 2px; }
+.stepper .intro { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0 12px; padding: 4px 12px; margin-top: 6px; }
+.stepper .intro .long, .stepper #introPaste { display: none; }
+.stepper .intro .link { min-height: 40px; }
+.stepper .layout { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.stepper .fig { position: relative; flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+.stepper .fig svg { flex: 1 1 auto; min-height: 0; height: 100%; max-height: none; }
+.stepper .legend { margin: 0 0 4px; }
+.stepper #steps { flex: 0 1 auto; max-height: 42%; overflow-y: auto; padding-bottom: 4px; overscroll-behavior: contain; }
+.stepper .step:not(.on) { display: none; }
+.stepper .step { padding: 8px 0 8px 12px; }
+.stepper footer { display: none; }
+.stepper .stepbar { position: static; flex: none; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))) calc(-1 * max(16px, env(safe-area-inset-right, 0px))); }
+.stepper .toast { bottom: calc(var(--bar) + 12px); }
+/* sideways phone: figure left at full height; question, step and controls right */
+#app.stepper.land { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; column-gap: 16px; }
+.land .layout { display: contents; }
+.land .fig { grid-column: 1; grid-row: 1 / -1; border-bottom: 0; }
+.land .top { grid-column: 2; grid-row: 1; }
+.land #question { grid-column: 2; grid-row: 2; }
+.land .asked { grid-column: 2; grid-row: 3; }
+.land .intro { grid-column: 2; grid-row: 4; }
+.land #steps { grid-column: 2; grid-row: 5; max-height: none; align-self: start; max-height: 100%; }
+.land .stepbar { grid-column: 2; grid-row: 6; margin-inline: 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))); border-top: 0; }
+.land .stepbar-in { height: 56px; }
+
+/* motion: feedback and continuity stay short; the one authored moment is Claude's pen (penIn in the script) */
+svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
+.primary, .arrow, .tog, .ref { transition: background-color .15s, color .15s, border-color .15s, transform .1s; }
+.step { transition: color .2s, border-color .2s; }
+@media (prefers-reduced-motion: no-preference) {
+  svg .hl { animation: pop .18s ease-out; }
+  .primary:active, .arrow:active:not(:disabled), .tog:active { transform: scale(.95); }
+  .sheet:not([hidden]) { animation: rise .32s cubic-bezier(0.16, 1, 0.3, 1); }
+  .panel:not([hidden]) { animation: pop .2s ease-out; }
+}
+@keyframes pop { from { opacity: 0; } }
+@keyframes rise { from { transform: translateY(100%); } }
+</style>
+
+<div class="wrap" id="app">
+  <div class="top">
+    <h1 id="title">Geometri Görüntüleyici</h1>
+    <button class="link phone-only" id="qToggle" type="button" aria-expanded="false" aria-controls="question">Soru</button>
+    <span class="top-end">
+      <button class="link phone-only" id="fsBtn" type="button" aria-label="Yatay ve tam ekran"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="11" rx="2"/><path d="M8 3h8M12 3v4"/></svg>Yatay</button>
+      <button class="link" id="pasteToggle" type="button" aria-expanded="false">Yapıştır</button>
+    </span>
+  </div>
+  <p id="question"></p>
+  <p class="asked" id="asked" hidden><span class="tgt-chip" id="askedWhat"></span></p>
+
+  <div class="intro" id="intro" hidden>
+    <p><b>Bu bir örnek soru.</b><span class="long"> Kendi sorun için Claude'un cevabının sonundaki şekil bloğunu yapıştır.</span></p>
+    <div class="row">
+      <button class="primary" id="introPaste" type="button">Şekil bloğunu yapıştır</button>
+      <button class="link" id="introSetup" type="button"><span class="long">İlk kez mi? </span>Claude'u ayarla</button>
+    </div>
+  </div>
+
+  <div class="panel" id="pastebox" hidden>
+    <p>Claude'un cevabının en sonundaki kod bloğunu kopyala ve buraya yapıştır. Yapıştırınca çizilir.</p>
+    <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Şekil bloğu" placeholder="Şekil bloğunu buraya yapıştır"></textarea>
+    <div id="err" role="alert"></div>
+    <div class="pbtns">
+      <button class="primary" id="drawBtn" type="button">Çiz</button>
+      <button class="link" id="sampleBtn" type="button">Örneği göster</button>
+      <button class="link" id="pasteSetup" type="button">İlk kez mi? Claude'u ayarla</button>
+    </div>
+  </div>
+
+  <div class="layout" id="layout">
+    <div class="fig">
+      <svg id="svg" role="img" aria-label="Şekil"></svg>
+      <span class="legend" id="legend" hidden>Claude ekledi</span>
+      <button class="zoomreset" id="zoomReset" type="button" hidden>Sıfırla</button>
+      <div class="toggles" role="group" aria-label="Görünüm">
+        <button class="tog" id="mode" type="button" aria-pressed="false">Sadece soru</button>
+        <button class="tog" id="hl" type="button" aria-pressed="true">Vurgu</button>
+        <button class="tog" id="names" type="button" aria-pressed="false">İsimler</button>
+      </div>
+    </div>
+    <ol id="steps"></ol>
+  </div>
+
+  <footer id="setup">
+    <button class="link" id="setupToggle" type="button" aria-expanded="false">Claude'u ayarla</button>
+    <div class="panel" id="setupbox" hidden>
+      <ol class="howto">
+        <li><b>Talimatı kopyala.</b> Claude'a bu uygulama için şekil bloğu yazmasını söyleyen metin.<br><button class="primary" id="copyBtn" type="button">Talimatı kopyala</button></li>
+        <li><b>Claude'a yapıştır.</b> Claude uygulamasında Ayarlar → Profil → "Kişisel tercihler" kutusuna yapıştır ve kaydet.</li>
+        <li><b>Soruyu gönder.</b> Sorunun fotoğrafını Claude'a gönder. Cevabın sonundaki şekil bloğunu kopyala, burada "Yapıştır"a dokun.</li>
+      </ol>
+      <p class="note">Beceri yüklemeyi biliyorsan geometry-figures becerisi de aynı işi yapar (Ayarlar → Yetenekler → Beceriler).</p>
+      <details class="raw"><summary>Talimatın metnini göster</summary><pre id="prompt"></pre></details>
+    </div>
+  </footer>
+
+  <p class="toast" id="toast" role="status" hidden></p>
+  <nav class="stepbar" aria-label="Adımlar">
+    <div class="stepbar-in">
+      <button class="arrow" id="prev" type="button" aria-label="Önceki adım"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span id="count" aria-live="polite"></span>
+      <button class="arrow" id="next" type="button" aria-label="Sonraki adım"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </nav>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-labelledby="sheetTitle" hidden>
+  <div class="sheet-in">
+    <div class="sheet-top">
+      <h2 id="sheetTitle"></h2>
+      <button class="link" id="sheetClose" type="button">Kapat</button>
+    </div>
+    <svg id="sheetFig" role="img" aria-label="Kural şekli"></svg>
+    <p class="formula" id="sheetFormula"></p>
+    <div class="mapping" id="sheetMap" hidden></div>
+    <p class="note" id="sheetNote"></p>
+  </div>
+</div>
+
+<script>
+const PROMPT = `Sana bir geometri sorusu gönderdiğimde (genelde fotoğraf), soruyu Türkçe çöz. Sonra cevabın en sonuna, Geometri Görüntüleyici'ye yapıştırabilmem için bu JSON formatında TEK bir kod bloğu ekle:
+
+{
+  "title": "sorunun kısa adı",
+  "question": "sorunun metni ve verilenler, şıklarla birlikte",
+  "points": { "A": [0, 0], "B": [13, 0], "C": [15.5, 6], "D": [2.5, 6], "E": [9, 6], "F": [9, 0] },
+  "lines": ["ABCDA"],
+  "helpers": ["AE", "BE", "EF"],
+  "rights": ["∠EFB"],
+  "equalAngles": [["∠DAE", "∠EAB"], ["∠ABE", "∠EBC"]],
+  "labels": { "EF": "6", "FB": "4" },
+  "asked": { "ref": "ABCD", "text": "A(ABCD) kaç cm²?", "value": "78" },
+  "names": { "EF": "yükseklik", "AB": "taban", "AF": "sol parça", "FB": "sağ parça" },
+  "steps": [
+    { "text": "Yarı açılara α ve β diyelim; yan yana iki açının toplamı 180°.", "math": ["2α + 2β = 180°", "α + β = 90°", "[∠AEB] = 90°"], "add": { "vars": { "∠EAB": "α", "∠ABE": "β" }, "rights": ["∠AEB"] } },
+    { "text": "Hipotenüse inen yükseklik için {oklid h=EF p=AF k=FB}:", "math": ["[EF]² = [AF] · [FB]", "6² = [AF] · 4", "[AF] = 36 ÷ 4 = 9"], "add": { "labels": { "AF": "9" } } }
+  ],
+  "answer": "Alan = [AB] × [EF] = 13 × 6 = 78 cm² → E"
+}
+
+Kurallar:
+- Üst kısım (lines, helpers, rights, equalAngles, equalSides, fills, circles, labels) SADECE soruda verilen şekil olmalı, kitaptaki gibi. Çözümde eklediğin her şeyi (yeni çizgi, yeni dik açı, bulduğun uzunluk, eşitlik işareti) o adımın "add" kısmına koy. Şekil adım adım kurulur ve "Sadece soru" düğmesi sorunun kendisini gösterir.
+- points: her nokta [x, y] olarak (y yukarı). Koordinatları gerçek ölçülere uygun seç: dik açılar dik, eşit kenarlar eşit görünsün, doğru ya da çember üzerindeki nokta gerçekten üzerinde olsun. Çözümde eklediğin noktaları da yaz.
+- lines: siyah çizgiler, "ABCDA" A-B-C-D-A çizer. helpers: pembe/kırmızı yardımcı çizgiler.
+- Şekil okunaklı kalsın: çok kenar ve nokta olunca harfler ve sayılar birbirine girer, şekil okunmaz olur. Bu yüzden:
+  - Sadece çözümde gerçekten kullandığın yardımcı noktaları ekle. Kesişim, orta nokta gibi noktaları sadece bir adım onlardan bahsediyorsa ekle.
+  - Harfini yazmaya gerek olmayan yardımcı noktaları "unlabeled" listesine koy: "unlabeled": ["K", "L"]. Nokta çizilir ama harfi yazılmaz. Adımlarda adı geçen noktaları bu listeye koyma.
+  - labels'a sadece soruda verilen ve çözümde bulup kullandığın değerleri yaz. Her kenarın uzunluğunu yazma.
+  - Eşit kenarlarda aynı sayıyı her kenara tekrar yazmak yerine equalSides çentiklerini kullan.
+  - Noktaları birbirine çok yakın koyma; koordinatları seçerken harflerin ve sayıların sığacağı boşluk bırak.
+- rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }.
+- Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
+- labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
+- Senin eklediğin her şey (add içindekiler) şekilde turuncu, yeni çizgiler kesikli çizilir; kitaptakiler siyah/pembe kalır. Bu yüzden sorudaki şeyleri add'e, kendi eklediklerini üst kısma koyma.
+- names: denklemlerde geçen kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
+- En kısa yoldan çöz: sadece sorulan sonuca giden adımları yaz. Önce neye ihtiyaç olduğunu düşün (alan için taban ve yükseklik gibi) ve sadece onları bul. Sonuca katkısı olmayan bir uzunluğu, açıyı ya da değişkeni hesaplama, işaretleme ya da adlandırma.
+- steps: her adımda tek kısa fikir, sade cümleler. Bahsettiğin HER kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
+- asked: sorunun ne istediği, HER zaman yaz. "ref": uzunluk için "EC", açı için "∠ABC", alan için "ABCD" ya da "△ABC". "text": sorunun soru cümlesi, kitaptaki gibi aynen ("A(ABCD) kaç cm²?", "|EC| = x kaç cm'dir?"). "value": kısa cevap ("78", "9", "40°"). İstenen şey şekilde sarıyla işaretlenir. Kitap bilinmeyene bir ad verdiyse (EC üzerinde "x" gibi) onu labels'a yaz; vermediyse uygulama "?" yazar.
+- Değişkenler: çözüm için gerekiyorsa bilinmeyen bir kenara ya da açıya ad ver (a, x, α...). Adımın add.vars kısmına yaz: "vars": { "AD": "a", "∠DAE": "α" }. Ad şeklin üzerine eğik yazılır ve sonraki adımlarda kalır. Aynı uzunluktaki her kenara aynı adı yaz. Değeri soruyu çözmek için gerekiyorsa bulup add.labels'a yaz; şekilde "a = 6" olarak görünür.
+- math: işlem satırları. Hesap yaptığın her adımda açıklamayı kısa tut, işlemleri "math" listesine her satıra bir adım olacak şekilde yaz: ["h² = p · k", "6² = 9 · 4", "h = 6"]. Çarpma için · kullan. Kenarları [AF] gibi işaretleyebilirsin.
+- Kurallar: bir adımda bilinen bir kural kullandığında adını süslü parantezle yaz, uygulamada dokununca şekilli bir kart açılır. Kullanılabilenler: {oklid}, {pisagor}, {aciortay} (iç açıortay teoremi), {ikizkenar}, {ic-ters}, {yondes}, {ic-acilar}, {dis-aci}, {paralelkenar-alan}, {ucgen-alan}, {eskenar-dortgen}, {benzerlik}, {dik-kenarortay}, {30-60-90}, {45-45-90}, {ardisik-aciortay}, {cevre-aci}, {teget}. Kuralın kartındaki harfleri bu sorudaki kenarlarla eşleştir ki kartta "h = yükseklik |EF|" görünsün: {oklid h=EF p=AF k=FB}, {pisagor a=AB b=BC c=AC}. Kartlardaki harfler: oklid h p k a b c, pisagor a b c (c hipotenüs), aciortay c b x y, ucgen-alan a h, paralelkenar-alan a h, eskenar-dortgen e f. Örnek: "{oklid h=EF p=AF k=FB} ile [EF]² = [AF] · [FB]". Listede olmayan bir kural için "rules": { "anahtar": { "name": "Kuralın adı", "formula": "formül", "note": "tek cümle açıklama" } } ekle ve adımda {anahtar} yaz. Süslü parantezi başka bir şey için kullanma.
+- answer: sonuç ve doğru şık.
+- JSON geçerli olmalı: çift tırnak, yorum yok, sonda fazladan virgül yok.`;
+
+const SAMPLE = {
+  title: "Paralelkenar ve iki açıortay",
+  question: "ABCD paralelkenar, [AE] ve [BE] açıortay, [EF] ⊥ [AB], |EF| = 6 cm, |FB| = 4 cm.\nA(ABCD) kaç cm²?   A) 54  B) 60  C) 66  D) 72  E) 78",
+  points: { A: [0, 0], B: [13, 0], C: [15.5, 6], D: [2.5, 6], E: [9, 6], F: [9, 0] },
+  lines: ["ABCDA"],
+  helpers: ["AE", "BE", "EF"],
+  rights: ["∠EFB"],
+  equalAngles: [["∠DAE", "∠EAB"], ["∠ABE", "∠EBC"]],
+  labels: { EF: "6", FB: "4" },
+  asked: { ref: "ABCD", text: "A(ABCD) kaç cm²?", value: "78" },
+  names: { EF: "yükseklik", AB: "taban", AF: "sol parça", FB: "sağ parça" },
+  steps: [
+    { text: "Alan için taban ve yükseklik lazım. Yükseklik [EF] = 6 verilmiş, eksik olan taban [AB]. [FB] = 4 belli, [AF]'yi bulmalıyız." },
+    { text: "Açıortaylar açıları ikiye böler; yarılara α ve β diyelim. Paralelkenarda yan yana iki açının toplamı 180°. Bu yüzden [△AEB]'de kalan [∠AEB] = 90° ({ardisik-aciortay}).", math: ["2α + 2β = 180°", "α + β = 90°", "[∠AEB] = 180° − (α + β) = 90°"], add: { vars: { "∠DAE": "α", "∠EAB": "α", "∠ABE": "β", "∠EBC": "β" }, rights: ["∠AEB"] } },
+    { text: "[△AEB] dik üçgen ve [EF] hipotenüse inen yükseklik, {oklid h=EF p=AF k=FB}:", math: ["[EF]² = [AF] · [FB]", "6² = [AF] · 4", "[AF] = 36 ÷ 4 = 9"], add: { labels: { AF: "9" } } },
+    { text: "Taban iki parçanın toplamı:", math: ["[AB] = 9 + 4 = 13"], add: { labels: { AB: "13" } } },
+    { text: "{paralelkenar-alan}:", math: ["[AB] · [EF] = 13 · 6 = 78"] }
+  ],
+  answer: "A(ABCD) = 78 cm² → E şıkkı"
+};
+
+const ICON = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const ICON_NEXT = ICON('M9 5l7 7-7 7'), ICON_RESTART = ICON('M4 12a8 8 0 1 0 2.3-5.7M4 4v5h5');
+const NCOL = 5, W = 400, MAXH = 380, PAD = 40;
+const LISTS = ['lines', 'helpers', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills'];
+let isSample = false, asked = null, base = null, names = [], steps = [], cur = 0, solo = null, problemOnly = false, showHl = true, sideNames = {}, customRules = {};
+let refs = new Map(), colorOf = new Map();
+let full = { x: 0, y: 0, w: W, h: 300 }, view = null; // view: zoomed viewBox, null when showing everything
+
+// Rule cards: written as {key} in step text. Figures use the same format as Claude's figure blocks.
+const PARALLELS = (a, b) => ({ points: { A: [0, 3], B: [6, 3], C: [0, 0], D: [6, 0], E: [4, 3], F: [2, 0], G: [4.667, 4], K: [1.333, -1] }, lines: ['AB', 'CD', 'GK'], equalAngles: [[a, b]], labels: { AB: 'd₁', CD: 'd₂' }, hidePoints: true });
+const RULES = {
+  oklid: { name: 'Öklid bağıntısı', formula: 'h² = p · k\nc² = p · a\nb² = k · a', note: 'Dik üçgende dik köşeden hipotenüse yükseklik inince oluşan parçalar arasındaki bağıntılar. a = p + k hipotenüstür.', fig: { points: { A: [3, 3.873], B: [0, 0], C: [8, 0], H: [3, 0] }, lines: ['ABCA'], helpers: ['AH'], rights: ['∠BHA', '∠BAC'], labels: { AH: 'h', BH: 'p', HC: 'k', AB: 'c', AC: 'b', BC: 'a' }, hidePoints: true } },
+  pisagor: { name: 'Pisagor teoremi', formula: 'a² + b² = c²', note: 'Dik üçgende dik kenarların kareleri toplamı, hipotenüsün karesine eşittir.', fig: { points: { A: [0, 3], B: [0, 0], C: [4, 0] }, lines: ['ABCA'], rights: ['∠ABC'], labels: { AB: 'a', BC: 'b', AC: 'c' } } },
+  aciortay: { name: 'İç açıortay teoremi', formula: 'c / b = x / y', note: 'Açıortay, karşı kenarı açıyı oluşturan kenarların oranında böler.', fig: { points: { A: [2, 4], B: [0, 0], C: [6, 0], D: [2.649, 0] }, lines: ['ABCA'], helpers: ['AD'], equalAngles: [['∠BAD', '∠DAC']], labels: { AB: 'c', AC: 'b', BD: 'x', DC: 'y' } } },
+  ikizkenar: { name: 'İkizkenar üçgen', formula: '|AB| = |AC|  ⇔  m(B) = m(C)', note: 'Eşit kenarların karşısındaki açılar eşittir. Tepeden inen yükseklik aynı zamanda kenarortay ve açıortaydır.', fig: { points: { A: [2, 3.5], B: [0, 0], C: [4, 0], H: [2, 0] }, lines: ['ABCA'], helpers: ['AH'], rights: ['∠AHC'], equalSides: [['AB', 'AC'], ['BH', 'HC']], equalAngles: [['∠ABC', '∠ACB'], ['∠BAH', '∠HAC']] } },
+  'ic-ters': { name: 'İç ters açılar (Z kuralı)', formula: 'd₁ ∥ d₂ ise iç ters açılar eşittir', note: 'Paralel iki doğruyu kesen doğru bir Z çizer; Z\'nin iki köşesindeki açılar eşittir.', fig: PARALLELS('∠DFE', '∠AEF') },
+  yondes: { name: 'Yöndeş açılar (F kuralı)', formula: 'd₁ ∥ d₂ ise yöndeş açılar eşittir', note: 'Kesen doğrunun aynı tarafında, iki paralelde aynı konumdaki açılar eşittir.', fig: PARALLELS('∠BEG', '∠DFE') },
+  'ic-acilar': { name: 'Üçgenin iç açıları', formula: 'α + β + γ = 180°', note: '', fig: { points: { A: [1.5, 3.2], B: [0, 0], C: [5, 0] }, lines: ['ABCA'], labels: { '∠BAC': 'α', '∠ABC': 'β', '∠ACB': 'γ' } } },
+  'dis-aci': { name: 'Dış açı', formula: 'm(ACD) = α + β', note: 'Bir dış açı, kendisine komşu olmayan iki iç açının toplamına eşittir.', fig: { points: { A: [1.2, 3], B: [0, 0], C: [4, 0], D: [6, 0] }, lines: ['ABCA', 'CD'], labels: { '∠BAC': 'α', '∠ABC': 'β', '∠ACD': 'α + β' } } },
+  'paralelkenar-alan': { name: 'Paralelkenarın alanı', formula: 'Alan = a · h', note: 'Taban ile o tabana ait yüksekliğin çarpımı.', fig: { points: { A: [0, 0], B: [5, 0], C: [6.5, 3], D: [1.5, 3], H: [1.5, 0] }, lines: ['ABCDA'], helpers: ['DH'], rights: ['∠DHB'], labels: { AB: 'a', DH: 'h' } } },
+  'ucgen-alan': { name: 'Üçgenin alanı', formula: 'Alan = a · h / 2', note: 'Taban ile o tabana ait yüksekliğin çarpımının yarısı.', fig: { points: { A: [1.5, 3], B: [0, 0], C: [5, 0], H: [1.5, 0] }, lines: ['ABCA'], helpers: ['AH'], rights: ['∠AHC'], labels: { BC: 'a', AH: 'h' } } },
+  'eskenar-dortgen': { name: 'Eşkenar dörtgen', formula: 'Alan = e · f / 2', note: 'Dört kenarı eşittir. Köşegenler birbirini dik ortalar. Alan, köşegenlerin çarpımının yarısıdır (ya da a · h).', fig: { points: { A: [0, 2], B: [3, 0], C: [6, 2], D: [3, 4], O: [3, 2] }, lines: ['ABCDA'], helpers: ['AC', 'BD'], rights: ['∠AOB'], equalSides: [['AB', 'BC', 'CD', 'DA']], labels: { AO: 'e/2', OD: 'f/2' } } },
+  benzerlik: { name: 'Benzer üçgenler', formula: 'a′ / a = b′ / b = c′ / c = k\nAlanlar oranı = k²', note: 'Açıları eşit olan üçgenler benzerdir; karşılıklı kenarlar orantılıdır.', fig: { points: { A: [0, 0], B: [2.4, 0], C: [0.6, 1.8], D: [3.5, 0], E: [7.5, 0], F: [4.5, 3] }, lines: ['ABCA', 'DEFD'], equalAngles: [['∠CAB', '∠FDE'], ['∠ABC', '∠DEF']], labels: { AB: 'a', DE: 'a′', AC: 'b', DF: 'b′' }, hidePoints: true } },
+  'dik-kenarortay': { name: 'Hipotenüse ait kenarortay', formula: '|BM| = |AM| = |MC| = |AC| / 2', note: 'Dik üçgende dik köşeden hipotenüsün orta noktasına çizilen kenarortay, hipotenüsün yarısıdır.', fig: { points: { A: [0, 3], B: [0, 0], C: [4, 0], M: [2, 1.5] }, lines: ['ABCA'], helpers: ['BM'], rights: ['∠ABC'], equalSides: [['AM', 'MC', 'BM']] } },
+  '30-60-90': { name: '30-60-90 üçgeni', formula: 'x  :  x√3  :  2x', note: '30°\'nin karşısı x, 60°\'nin karşısı x√3, hipotenüs 2x.', fig: { points: { A: [0, 2], B: [0, 0], C: [3.464, 0] }, lines: ['ABCA'], rights: ['∠ABC'], labels: { AB: 'x', BC: 'x√3', AC: '2x', '∠ACB': '30°', '∠BAC': '60°' }, hidePoints: true } },
+  '45-45-90': { name: '45-45-90 üçgeni', formula: 'x  :  x  :  x√2', note: 'İkizkenar dik üçgen: dik kenarlar eşit, hipotenüs x√2.', fig: { points: { A: [0, 3], B: [0, 0], C: [3, 0] }, lines: ['ABCA'], rights: ['∠ABC'], equalSides: [['AB', 'BC']], labels: { AB: 'x', BC: 'x', AC: 'x√2', '∠ACB': '45°' }, hidePoints: true } },
+  'ardisik-aciortay': { name: 'Paralelkenarda açıortaylar', formula: 'm(AEB) = 90°', note: 'Paralelkenarda ardışık iki açının açıortayları dik kesişir; yanlarda oluşan üçgenler ikizkenardır.', fig: { points: { A: [0, 0], B: [13, 0], C: [15.5, 6], D: [2.5, 6], E: [9, 6] }, lines: ['ABCDA'], helpers: ['AE', 'BE'], rights: ['∠AEB'], equalAngles: [['∠DAE', '∠EAB'], ['∠ABE', '∠EBC']], equalSides: [['AD', 'DE'], ['BC', 'CE']] } },
+  'cevre-aci': { name: 'Çevre açı', formula: 'Çevre açı = merkez açı / 2', note: 'Aynı yayı gören çevre açı, merkez açının yarısıdır.', fig: { points: { O: [0, 0], A: [-1.928, -2.298], B: [1.928, -2.298], C: [-0.521, 2.954] }, circles: [{ center: 'O', r: 3 }], lines: ['ACB'], helpers: ['AOB'], labels: { '∠AOB': '2α', '∠ACB': 'α' } } },
+  teget: { name: 'Teğet ve yarıçap', formula: 'Teğet ⊥ yarıçap', note: 'Teğet, değme noktasındaki yarıçapa diktir.', fig: { points: { O: [0, 0], T: [0, -2], P: [-3, -2], Q: [3, -2] }, circles: [{ center: 'O', r: 2 }], lines: ['PQ'], helpers: ['OT'], rights: ['∠OTQ'] } }
+};
+
+// A figure spec (the JSON format) as drawFigure items, with nothing marked as Claude's.
+function specFigure(spec) {
+  const F = { points: spec.points, labels: {} };
+  for (const k of LISTS) F[k] = arr(spec[k]).map(v => ({ v, added: false }));
+  for (const k of ['equalAngles', 'equalSides']) F[k] = arr(spec[k]).map(g => arr(g).map(v => ({ v, added: false })));
+  for (const [k, v] of Object.entries(obj(spec.labels))) F.labels[k] = { v, added: false };
+  return F;
+}
+
+const ruleFor = key => Object.hasOwn(RULES, key) ? RULES[key] : Object.hasOwn(customRules, key) ? customRules[key] : null;
+
+// map: "h=EF p=AF k=FB", the rule's letters matched to this problem's sides, in the step's colors.
+function openRule(key, map = '') {
+  const rule = ruleFor(key); if (!rule) return;
+  $('sheetTitle').textContent = rule.name || key;
+  $('sheetFormula').textContent = rule.formula || '';
+  $('sheetNote').textContent = rule.note || '';
+  const rows = map.split(/\s+/).filter(Boolean).map(pair => {
+    const [v, k] = pair.split('='), r = parseRef(k || '');
+    if (!v || !r) return '';
+    const named = sideNames[r.key], c = colorOf.has(r.key) ? `var(--c${colorOf.get(r.key)})` : 'transparent';
+    return `<div><b>${esc(v)}</b> = <span style="--c:${c}">${esc(named || refLetters(r, true))}</span>${named ? ` ${esc(refLetters(r, true))}` : ''}</div>`;
+  }).join('');
+  $('sheetMap').innerHTML = rows ? `<div>Bu soruda:</div>${rows}` : '';
+  $('sheetMap').hidden = !rows;
+  const fig = $('sheetFig');
+  fig.hidden = !rule.fig;
+  if (rule.fig) {
+    const nm = Object.keys(rule.fig.points).sort((x, y) => y.length - x.length);
+    const d = drawFigure(specFigure(rule.fig), { nm, dims: { W: 240, MAXH: 180, PAD: 40 }, hidePoints: rule.fig.hidePoints });
+    fig.setAttribute('viewBox', `0 0 ${d.w} ${f(d.h)}`);
+    fig.innerHTML = d.out;
+  }
+  ruleOpener = document.activeElement;
+  $('sheet').getAnimations().forEach(a => a.cancel());
+  delete $('sheet').dataset.closing;
+  $('sheet').hidden = false;
+  $('sheetClose').focus({ preventScroll: true });
+}
+let ruleOpener = null;
+const closeRule = () => {
+  const sheet = $('sheet');
+  if (sheet.hidden || sheet.dataset.closing) return;
+  const done = () => { delete sheet.dataset.closing; sheet.hidden = true; };
+  // leaves faster than it arrives
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) done();
+  else { sheet.dataset.closing = '1'; sheet.animate([{ transform: 'none' }, { transform: 'translateY(100%)' }], { duration: 180, easing: 'cubic-bezier(0.4, 0, 1, 1)' }).onfinish = done; }
+  if (ruleOpener && ruleOpener.isConnected) ruleOpener.focus({ preventScroll: true });
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const arr = v => Array.isArray(v) ? v : [];
+const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+
+// Split "ABC" or "A'B1C" into known point names, longest names first.
+function tokenize(str, nm = names) {
+  const out = []; let i = 0;
+  while (i < str.length) {
+    const n = nm.find(n => str.startsWith(n, i));
+    if (!n) return null;
+    out.push(n); i += n.length;
+  }
+  return out;
+}
+
+function parseRef(raw, nm = names) {
+  let s = String(raw).replace(/\s+/g, ''), kind = null;
+  const am = s.match(/^(∠|angle)/i), tm = s.match(/^(△|Δ|∆|triangle|tri)/i);
+  if (am) { kind = 'angle'; s = s.slice(am[0].length); }
+  else if (tm) { kind = 'poly'; s = s.slice(tm[0].length); }
+  const p = tokenize(s, nm);
+  if (!p || !p.length) return null;
+  if (kind === 'angle') return p.length === 3 ? { type: 'angle', p, key: `a:${p[1]}:${[p[0], p[2]].sort()}`, label: p.join('') } : null;
+  if (p.length === 1) return { type: 'point', p, key: 'p:' + p[0], label: p[0] };
+  if (p.length === 2 && kind !== 'poly') return { type: 'seg', p, key: 's:' + [...p].sort(), label: p.join('') };
+  if (p.length < 3) return null;
+  return { type: 'poly', p, key: 'g:' + [...p].sort(), label: p.join('') };
+}
+
+// Small shape icon so the reader sees what kind of thing a name is.
+function glyph(type, c) {
+  const s = `stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"`;
+  const body = {
+    seg: `<line x1="1.5" y1="9" x2="12.5" y2="2" ${s}/>`,
+    point: `<circle cx="7" cy="5.5" r="3.5" fill="${c}"/>`
+  }[type];
+  return `<svg viewBox="0 0 14 11" aria-hidden="true">${body}</svg>`;
+}
+
+// Letters as Turkish notation writes them: AF in a sentence, |AF| in a calculation, ∠AEB, △AEB.
+function refLetters(r, inMath) {
+  if (r.type === 'seg') return inMath ? `|${r.label}|` : r.label;
+  return { angle: '∠', poly: r.p.length === 3 ? '△' : '', point: '' }[r.type] + r.label;
+}
+const capTr = s => s.charAt(0).toLocaleUpperCase('tr') + s.slice(1);
+
+function fmt(s) {
+  return esc(s).replace(/\^(\(?[\w.]+\)?)/g, '<sup>$1</sup>').replace(/\n/g, '<br>');
+}
+
+// [..] marks a figure element, |AB| a length, {key} or {key h=EF p=AF} a rule card (with its letters mapped to this problem).
+// A side is written in exam notation (EF, |EF|). Its name follows as a small note the first time a step mentions it,
+// unless the sentence already says the name ("Yükseklik [EF]") or a suffix follows ("[AF]'yi"). The İsimler switch
+// shows names in place of letters, except where that would repeat a word or break a suffix.
+function renderText(t, i, inMath = false, noted = new Set()) {
+  let html = '', last = 0;
+  String(t).replace(/\[([^\]]+)\]|\|([^|\n]{1,12})\||\{([\w-]+)((?:\s+[^\s=}]+=[^\s}]+)*)\}/g, (m, br, bar, rk, map, idx) => {
+    html += fmt(t.slice(last, idx));
+    const before = t.slice(0, idx), after = t.slice(idx + m.length);
+    const atStart = !inMath && /^\s*$|[.!?]\s*$/.test(before);
+    last = idx + m.length;
+    if (rk !== undefined) {
+      const rule = ruleFor(rk);
+      html += rule ? `<button type="button" class="rule" data-rule="${esc(rk)}" data-map="${esc((map || '').trim())}">${esc(rule.name || rk)}</button>` : fmt(m);
+      return;
+    }
+    let r = parseRef(br !== undefined ? br : bar);
+    if (r && bar !== undefined && r.type !== 'seg') r = null;
+    if (!r) { html += fmt(m); return; }
+    refs.set(r.key, r); steps[i].keys.add(r.key);
+    if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
+    const c = `var(--c${colorOf.get(r.key)})`, letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
+    const icon = r.type === 'seg' || r.type === 'point' ? glyph(r.type, c) : ''; // ∠ and △ already say what they are
+    const said = named && before.trimEnd().toLocaleLowerCase('tr').endsWith(named.toLocaleLowerCase('tr'));
+    const keep = said || /^['’]/.test(after); // the name would repeat a word or take the suffix
+    let label = esc(letters);
+    if (named && !keep) {
+      const note = !inMath && !noted.has(r.key) ? `<span class="nt"> (${esc(named)})</span>` : '';
+      noted.add(r.key);
+      label = `<span class="lt">${esc(letters)}${note}</span><span class="nm">${esc(atStart ? capTr(named) : named)}</span>`;
+    }
+    html += `<button type="button" class="ref" data-k="${esc(r.key)}" data-i="${i}" style="--c:${c}">${icon}${label}</button>`;
+  });
+  return html + fmt(t.slice(last));
+}
+
+function parseInput(text) {
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a < 0) throw new Error('Burada şekil bloğu yok. Claude\'un cevabının en sonundaki kod bloğunu baştan sona kopyalayıp yapıştır.');
+  if (b < a) throw new Error('Şekil bloğu yarım kopyalanmış, sonu eksik. Bloğun tamamını kopyalayıp tekrar yapıştır.');
+  const body = text.slice(a, b + 1);
+  try { return JSON.parse(body); } catch (e) {
+    const cleaned = body.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\/\/[^\n"]*$/gm, '').replace(/,\s*([}\]])/g, '$1');
+    try { return JSON.parse(cleaned); } catch (e2) { throw new Error('Şekil bloğu eksik ya da bozuk kopyalanmış. Bloğun tamamını kopyaladığından emin ol; olmazsa Claude\'a "şekil bloğunu tekrar gönder" yaz.'); }
+  }
+}
+
+// opts: { sample: true for the built-in example, step: the step to open on }
+function load(data, opts = {}) {
+  const pts = data && data.points;
+  if (!pts || typeof pts !== 'object' || !Object.keys(pts).length) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
+  for (const [k, v] of Object.entries(pts)) {
+    if (!Array.isArray(v) || v.length < 2 || !v.slice(0, 2).every(Number.isFinite)) throw new Error(`Şekilde ${k} noktasının yeri eksik. Claude'a "şekil bloğunu tekrar gönder" yaz.`);
+  }
+  names = Object.keys(pts).sort((x, y) => y.length - x.length);
+  base = { points: pts, labels: obj(data.labels), unlabeled: new Set(arr(data.unlabeled).map(String)) };
+  for (const k of LISTS) base[k] = arr(data[k]);
+  sideNames = {};
+  for (const [k, v] of Object.entries(obj(data.names))) { const r = parseRef(k); if (r && v) sideNames[r.key] = String(v); }
+  // Rules Claude defines itself: text only, no diagram.
+  customRules = {};
+  for (const [k, v] of Object.entries(obj(data.rules))) {
+    if (obj(v).name) customRules[k] = { name: String(v.name), formula: String(v.formula || ''), note: String(v.note || '') };
+  }
+  refs = new Map(); colorOf = new Map(); view = null; closeRule();
+  steps = arr(data.steps).map(s => typeof s === 'string' ? { t: s, add: {}, math: [] } : { t: String((s && s.text) || ''), add: obj(s && s.add), math: arr(s && s.math).map(m => String(m).replace(/\s\*\s/g, ' · ')) });
+  if (data.answer) steps.push({ t: String(data.answer), add: {}, answer: true });
+  steps.forEach(s => s.keys = new Set());
+  // "asked": "EC" or { "ref": "EC", "text": "|EC| = x kaç cm'dir?", "value": "9" }; text is the question's own wording.
+  const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), ar = parseRef(ak.ref || '');
+  asked = ar && { r: ar, ref: String(ak.ref), value: ak.value != null ? String(ak.value) : '' };
+  $('asked').hidden = !asked;
+  if (asked) {
+    const what = { seg: `|${ar.p.join('')}|`, angle: `m(${ar.p.join('')})`, poly: `A(${ar.p.join('')})`, point: ar.p[0] }[ar.type];
+    $('askedWhat').textContent = ak.text ? String(ak.text) : `${what} kaçtır?`;
+  }
+  $('title').textContent = data.title || 'Geometri Görüntüleyici';
+  $('question').textContent = data.question || '';
+  $('steps').innerHTML = steps.map((s, i) => `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}</li>`).join('');
+  isSample = !!opts.sample;
+  $('intro').hidden = !isSample;
+  $('sampleBtn').hidden = isSample;
+  cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); solo = null; setMode(false);
+}
+
+// The figure as of step i: the problem as given plus everything steps 0..i added. i = -1 is the bare problem.
+// Every item is { v, added }: added is false when it is in the book, true when Claude's solution drew it,
+// and 'fresh' when step `fresh` adds it (that step's additions get drawn in).
+function figureAt(i, fresh = -1) {
+  const F = { points: base.points, labels: {} };
+  for (const k of LISTS) F[k] = [];
+  const srcs = [base, ...steps.slice(0, Math.max(0, i + 1)).map(s => s.add)];
+  for (const [j, a] of srcs.entries()) {
+    const added = a === base ? false : j - 1 === fresh ? 'fresh' : true;
+    for (const k of LISTS) if (k !== 'equalAngles' && k !== 'equalSides') F[k].push(...arr(a[k]).map(v => ({ v, added })));
+    for (const [k, v] of Object.entries(obj(a.labels))) putLabel(F, k, { v: String(v), added });
+    for (const [k, v] of Object.entries(obj(a.vars))) putLabel(F, k, { name: String(v), added });
+    mergeGroups(F.equalAngles, arr(a.equalAngles), added);
+    mergeGroups(F.equalSides, arr(a.equalSides), added);
+  }
+  return F;
+}
+
+// Labels are keyed by how they were first written; "AD" and "DA" share one entry.
+// An entry can hold a value (v), a variable name (name), or both, shown as "a = 6,5".
+function putLabel(F, k, patch) {
+  const r = parseRef(k); if (!r) return;
+  const own = Object.keys(F.labels).find(x => { const q = parseRef(x); return q && q.key === r.key; }) || k;
+  F.labels[own] = { ...F.labels[own], ...patch };
+}
+const labelText = L => L.name && L.v ? `${L.name} = ${L.v}` : (L.name || L.v || '');
+
+// A new group that shares a side or angle with an existing one joins it, so it keeps the same tick count.
+function mergeGroups(into, add, added) {
+  const keyOf = k => { const r = parseRef(k); return r ? r.key : null; };
+  for (const grp of add) {
+    const items = arr(grp).filter(keyOf), keys = new Set(items.map(keyOf));
+    const hit = into.find(g => g.some(m => keys.has(keyOf(m.v))));
+    const target = hit || [];
+    for (const v of items) if (!target.some(m => keyOf(m.v) === keyOf(v))) target.push({ v, added });
+    if (!hit && target.length) into.push(target);
+  }
+}
+
+function radius(F, c) {
+  if (Number.isFinite(c.r)) return c.r;
+  const o = F.points[c.center], t = F.points[c.through];
+  return o && t ? Math.hypot(t[0] - o[0], t[1] - o[1]) : 0;
+}
+
+// Fit uses every point and circle, so the figure doesn't jump as steps add things.
+function frame(F, fit, { W, MAXH, PAD }) {
+  const P = F.points, xs = [], ys = [];
+  for (const v of Object.values(P)) { xs.push(v[0]); ys.push(v[1]); }
+  for (const { v: c } of fit) {
+    const o = P[c.center]; if (!o) continue;
+    const r = radius(F, c); xs.push(o[0] - r, o[0] + r); ys.push(o[1] - r, o[1] + r);
+  }
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const w = Math.max(maxX - minX, 1e-6), h = Math.max(maxY - minY, 1e-6);
+  const s = Math.min((W - 2 * PAD) / w, (MAXH - 2 * PAD) / h);
+  const H = Math.max(h * s + 2 * PAD, MAXH * 0.42), ox = (W - w * s) / 2, oy = (H - h * s) / 2;
+  return { s, H, map: ([x, y]) => [ox + (x - minX) * s, H - oy - (y - minY) * s] };
+}
+
+const unit = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+const f = n => n.toFixed(1);
+const pt = p => `${f(p[0])},${f(p[1])}`;
+
+function angleGeom(V, A, C) {
+  const u1 = unit(V, A), u2 = unit(V, C), a1 = Math.atan2(u1[1], u1[0]);
+  let d = Math.atan2(u2[1], u2[0]) - a1;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d <= -Math.PI) d += 2 * Math.PI;
+  return { u1, u2, a1, d, right: Math.abs(Math.abs(d) - Math.PI / 2) < 0.03 };
+}
+const onArc = (V, r, a) => [V[0] + r * Math.cos(a), V[1] + r * Math.sin(a)];
+const arcTo = (V, r, g) => `A${r},${r} 0 0 ${g.d > 0 ? 1 : 0} ${pt(onArc(V, r, g.a1 + g.d))}`;
+const squarePts = (V, g, k) => [[V[0] + g.u1[0] * k, V[1] + g.u1[1] * k], [V[0] + (g.u1[0] + g.u2[0]) * k, V[1] + (g.u1[1] + g.u2[1]) * k], [V[0] + g.u2[0] * k, V[1] + g.u2[1] * k]];
+const pathPts = (l, nm) => { const p = tokenize(String(l).replace(/[\s-]+/g, ''), nm); return p && p.length > 1 ? p : null; };
+
+// Draws a figure (items as built by figureAt) to SVG markup. Used for the main figure and the rule cards.
+// o: { nm: point names, act: highlighted refs, fit: circles to fit, dims: {W, MAXH, PAD}, hidePoints }
+function drawFigure(F, o) {
+  const nm = o.nm, ref = k => parseRef(k, nm), D = o.dims || { W, MAXH, PAD }, act = o.act || [];
+  const { s, H, map } = frame(F, o.fit || F.circles, D), P = {};
+  for (const [k, v] of Object.entries(F.points)) P[k] = map(v);
+  const col = r => `var(--c${colorOf.get(r.key)})`;
+  const shown = new Set(), use = ps => ps && ps.forEach(n => shown.add(n));
+  let out = '';
+
+  const cls = (name, added) => added ? `${name} add${added === 'fresh' ? ' fresh' : ''}` : name;
+  let masks = 0;
+  let anyAdded = false;
+  const track = added => { if (added) anyAdded = true; return added; };
+
+  for (const { v: k, added } of F.fills) {
+    const r = ref(k); if (!r || r.type !== 'poly') continue;
+    use(r.p); out += `<polygon points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:var(${track(added) ? '--claudefill' : '--fill'})"/>`;
+  }
+  for (const r of act.filter(r => r.type === 'poly')) out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:${col(r)};fill-opacity:.16"/>`;
+  // What the question asks for: a yellow underlay, like marking it in the book.
+  const tg = o.target && o.target.r;
+  if (tg) {
+    use(tg.p);
+    if (tg.type === 'seg') out += `<line class="tgt" x1="${f(P[tg.p[0]][0])}" y1="${f(P[tg.p[0]][1])}" x2="${f(P[tg.p[1]][0])}" y2="${f(P[tg.p[1]][1])}"/>`;
+    else if (tg.type === 'poly') out += `<polygon class="tgt" points="${tg.p.map(n => pt(P[n])).join(' ')}"/>`;
+    else if (tg.type === 'angle') {
+      const V = P[tg.p[1]], g = angleGeom(V, P[tg.p[0]], P[tg.p[2]]);
+      out += `<path class="tgt" d="M${pt(V)} L${pt(onArc(V, 30, g.a1))} ${arcTo(V, 30, g)} Z"/>`;
+    } else out += `<circle class="tgt" cx="${f(P[tg.p[0]][0])}" cy="${f(P[tg.p[0]][1])}" r="10"/>`;
+  }
+  for (const { v: c, added } of F.circles) {
+    const o = P[c.center]; if (!o) continue;
+    use([c.center]); out += `<circle class="${cls('base', track(added))}" cx="${f(o[0])}" cy="${f(o[1])}" r="${f(radius(F, c) * s)}"/>`;
+  }
+  for (const kind of ['lines', 'helpers']) {
+    for (const { v: l, added } of F[kind]) {
+      const p = pathPts(l, nm); if (!p) continue;
+      use(p);
+      const pts = p.map(n => pt(P[n])).join(' ');
+      if (added === 'fresh') {
+        // revealed through a mask the pen stroke draws, so dashed lines draw in too
+        const id = `pen${++masks}`;
+        out += `<mask id="${id}" maskUnits="userSpaceOnUse" x="-60" y="-60" width="${D.W + 120}" height="${f(H + 120)}"><polyline class="pen" points="${pts}" pathLength="1" stroke-dasharray="1 1" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></mask>`;
+        out += `<polyline class="${cls(kind === 'lines' ? 'base' : 'helper', track(added))}" points="${pts}" mask="url(#${id})"/>`;
+      } else out += `<polyline class="${cls(kind === 'lines' ? 'base' : 'helper', track(added))}" points="${pts}"/>`;
+    }
+  }
+  for (const { v: k, added } of F.rights) {
+    const r = ref(k); if (!r || r.type !== 'angle') continue;
+    use(r.p); track(added);
+    const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]), q = squarePts(V, g, 12), m = squarePts(V, g, 6)[1];
+    out += `<polyline class="${cls('mark', added)}" points="${q.map(pt).join(' ')}"/><circle class="${cls('dot', added)}" cx="${f(m[0])}" cy="${f(m[1])}" r="1.6"/>`;
+  }
+  F.equalAngles.forEach((grp, gi) => {
+    for (const { v: k, added } of grp) {
+      const r = ref(k); if (!r || r.type !== 'angle') continue;
+      use(r.p); track(added);
+      const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]), R = 20 + (gi % 2) * 4, c = cls('mark', added);
+      out += `<path class="${c}" d="M${pt(onArc(V, R, g.a1))} ${arcTo(V, R, g)}"/>`;
+      const n = gi + 1, am = g.a1 + g.d / 2, step = 7 / R;
+      for (let t = 0; t < n; t++) {
+        const a = am + (t - (n - 1) / 2) * step, p1 = onArc(V, R - 5, a), p2 = onArc(V, R + 5, a);
+        out += `<line class="${c}" x1="${f(p1[0])}" y1="${f(p1[1])}" x2="${f(p2[0])}" y2="${f(p2[1])}"/>`;
+      }
+    }
+  });
+  F.equalSides.forEach((grp, gi) => {
+    for (const { v: k, added } of grp) {
+      const r = ref(k); if (!r || r.type !== 'seg') continue;
+      use(r.p); track(added);
+      const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b), nrm = [-u[1], u[0]], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], n = gi + 1;
+      for (let t = 0; t < n; t++) {
+        const o = (t - (n - 1) / 2) * 5, c = [m[0] + u[0] * o, m[1] + u[1] * o];
+        out += `<line class="${cls('mark', added)}" x1="${f(c[0] - nrm[0] * 6)}" y1="${f(c[1] - nrm[1] * 6)}" x2="${f(c[0] + nrm[0] * 6)}" y2="${f(c[1] + nrm[1] * 6)}"/>`;
+      }
+    }
+  });
+  // True when segment q lies on segment r (same line, inside it) without being r itself.
+  const inside = (q, r) => {
+    if (q.key === r.key) return false;
+    const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return q.p.every(n => {
+      const d = [P[n][0] - a[0], P[n][1] - a[1]], t = d[0] * u[0] + d[1] * u[1];
+      return Math.abs(d[0] * u[1] - d[1] * u[0]) < 1 && t > -1 && t < L + 1;
+    });
+  };
+  // highlights of what the current step talks about, drawn over the dimmed figure.
+  // A side whose parts are also highlighted (AB with AF and FB) goes underneath as a wide band, so all stay visible.
+  const actSegs = act.filter(r => r.type === 'seg');
+  const isWhole = r => actSegs.some(q => inside(q, r));
+  for (const r of [...act].sort((a, b) => isWhole(b) - isWhole(a))) {
+    const c = col(r); use(r.p);
+    if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-linecap:round;${isWhole(r) ? 'stroke-width:14;stroke-opacity:.35' : 'stroke-width:4'}"/>`;
+    else if (r.type === 'poly') out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-width:3;stroke-linejoin:round"/>`;
+    else if (r.type === 'angle') {
+      const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
+      const d = g.right ? `M${pt(V)} L${squarePts(V, g, 16).map(pt).join(' L')} Z` : `M${pt(V)} L${pt(onArc(V, 30, g.a1))} ${arcTo(V, 30, g)} Z`;
+      out += `<path class="hl" d="${d}" style="fill:${c};fill-opacity:.45"/>`;
+    } else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="7" style="fill:${c}"/>`;
+  }
+  const all = Object.values(P), cx = all.reduce((a, p) => a + p[0], 0) / all.length, cy = all.reduce((a, p) => a + p[1], 0) / all.length;
+  const labelSegs = Object.keys(F.labels).map(ref).filter(r => r && r.type === 'seg');
+  for (const [k, L] of Object.entries(F.labels)) {
+    const v = labelText(L), added = L.added;
+    const r = ref(k); if (!r) continue;
+    let x, y;
+    if (r.type === 'seg') {
+      const a = P[r.p[0]], b = P[r.p[1]], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      let n = [-(b[1] - a[1]), b[0] - a[0]]; const l = Math.hypot(...n) || 1; n = [n[0] / l, n[1] / l];
+      if ((m[0] - cx) * n[0] + (m[1] - cy) * n[1] < 0) n = [-n[0], -n[1]];
+      if (labelSegs.some(q => inside(q, r))) {
+        // A total over labeled parts: book-style dimension line further out, with end ticks.
+        const o = 34, a2 = [a[0] + n[0] * o, a[1] + n[1] * o], b2 = [b[0] + n[0] * o, b[1] + n[1] * o], c = cls('mark', added);
+        out += `<line class="${c}" x1="${f(a2[0])}" y1="${f(a2[1])}" x2="${f(b2[0])}" y2="${f(b2[1])}"/>`;
+        for (const e of [a2, b2]) out += `<line class="${c}" x1="${f(e[0] - n[0] * 5)}" y1="${f(e[1] - n[1] * 5)}" x2="${f(e[0] + n[0] * 5)}" y2="${f(e[1] + n[1] * 5)}"/>`;
+        [x, y] = [m[0] + n[0] * o, m[1] + n[1] * o];
+      } else {
+        [x, y] = [m[0] + n[0] * 14, m[1] + n[1] * 14];
+        // Slide along the segment if a point label sits on this spot (e.g. a midpoint).
+        if (Object.values(P).some(q => Math.hypot(q[0] - m[0], q[1] - m[1]) < 20)) {
+          const u = unit(a, b); x += u[0] * 30; y += u[1] * 30;
+        }
+      }
+    } else if (r.type === 'angle') {
+      const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
+      let b = [g.u1[0] + g.u2[0], g.u1[1] + g.u2[1]]; const l = Math.hypot(...b);
+      b = l < 1e-6 ? [-g.u1[1], g.u1[0]] : [b[0] / l, b[1] / l];
+      [x, y] = [V[0] + b[0] * 44, V[1] + b[1] * 44];
+    } else continue;
+    use(r.p); track(added);
+    out += `<text class="${cls('given', added)}${L.name ? ' var' : ''}" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${esc(v)}</text>`;
+  }
+  for (const k of o.hidePoints ? [] : [...shown].filter(n => !(o.unlabeled && o.unlabeled.has(n)))) {
+    const p = P[k]; let d = [p[0] - cx, p[1] - cy]; const l = Math.hypot(...d);
+    d = l < 1e-6 ? [0, -1] : [d[0] / l, d[1] / l];
+    out += `<circle class="dot" cx="${f(p[0])}" cy="${f(p[1])}" r="2.2"/><text class="plabel" x="${f(p[0] + d[0] * 18)}" y="${f(p[1] + d[1] * 18)}" text-anchor="middle" dominant-baseline="central">${esc(k)}</text>`;
+  }
+  if (tg && tg.type === 'poly' && o.target.value) {
+    const ps = tg.p.map(n => P[n]), x = ps.reduce((a, p) => a + p[0], 0) / ps.length, y = ps.reduce((a, p) => a + p[1], 0) / ps.length;
+    out += `<text class="given add answer" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${esc(o.target.value)}</text>`;
+  }
+  return { out, w: D.W, h: H, anyAdded };
+}
+
+let drawIn = false; // set by go(): the next render draws in what the new step adds
+function render() {
+  const fresh = drawIn && !problemOnly ? cur : -1; drawIn = false;
+  const F = figureAt(problemOnly ? -1 : cur, fresh);
+  const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(steps[cur] ? steps[cur].keys : [])]).map(k => refs.get(k)).filter(Boolean);
+  // A length or angle the book left unlabeled gets a "?" written on it like a given value; on the answer step, the answer.
+  if (asked && asked.r.type !== 'poly' && asked.r.type !== 'point') {
+    const solved = !problemOnly && steps[cur] && steps[cur].answer && asked.value;
+    const own = Object.keys(F.labels).find(k => { const r = parseRef(k); return r && r.key === asked.r.key; });
+    // keep the book's unknown name: "x" becomes "x = 9"
+    const L = own && F.labels[own];
+    if (solved) putLabel(F, asked.ref, L && L.v && !L.name ? { name: L.v, v: asked.value, added: true } : { v: asked.value, added: true });
+    else if (!own) putLabel(F, asked.ref, { v: '?', added: false });
+  }
+  const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
+  const d = drawFigure(F, { nm: names, act, unlabeled: base.unlabeled, target: asked && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
+  const svg = $('svg');
+  full = { x: 0, y: 0, w: d.w, h: d.h };
+  applyView();
+  svg.classList.toggle('dim', act.length > 0);
+  svg.innerHTML = d.out;
+  if (fresh >= 0) penIn(svg, atAnswer);
+  $('legend').hidden = !d.anyAdded;
+  $('hl').setAttribute('aria-pressed', String(showHl));
+  $('app').classList.toggle('nohl', !showHl);
+
+  document.querySelectorAll('.step').forEach(el => el.classList.toggle('on', +el.dataset.i === cur));
+  document.querySelectorAll('.ref').forEach(el => el.classList.toggle('solo', el.dataset.k === solo && +el.dataset.i === cur));
+  const nSteps = steps.filter(s => !s.answer).length, end = cur >= steps.length - 1;
+  $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : `${cur + 1} / ${nSteps}`;
+  $('app').classList.toggle('no-steps', !steps.length);
+  $('prev').disabled = cur <= 0;
+  // on the last step › becomes "start over"
+  $('next').disabled = steps.length < 2;
+  $('next').classList.toggle('restart', end);
+  $('next').setAttribute('aria-label', end ? 'Baştan başla' : 'Sonraki adım');
+  $('next').innerHTML = end ? ICON_RESTART : ICON_NEXT;
+}
+
+// Claude's pen: what this step adds is drawn onto the book figure in reading order:
+// lines trace, then marks appear, then the numbers settle. The answer warms the asked area.
+// Everything is visible by default; animations only start from hidden, so a failed script hides nothing.
+function penIn(svg, answer) {
+  const ease = 'cubic-bezier(0.16, 1, 0.3, 1)', reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fade = (els, delay, extra = []) => els.forEach((el, n) => el && el.animate(
+    reduce ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, ...extra[0] }, { opacity: 1, ...extra[1] }],
+    { duration: reduce ? 160 : 260, delay: reduce ? 0 : delay + n * 40, easing: ease, fill: 'backwards' }));
+  const pens = [...svg.querySelectorAll('.pen')];
+  if (reduce) fade(pens.map(m => svg.querySelector(`[mask="url(#${m.parentNode.id})"]`)), 0);
+  else pens.forEach((m, n) => m.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 480, delay: n * 140, easing: ease, fill: 'backwards' }));
+  const after = pens.length ? 300 + (pens.length - 1) * 140 : 0;
+  fade([...svg.querySelectorAll('.mark.fresh, .dot.fresh')], after);
+  fade([...svg.querySelectorAll('.given.fresh')], after + 140, [{ transform: 'scale(.6)' }, { transform: 'scale(1)' }]);
+  if (answer) {
+    const area = svg.querySelector('polygon.tgt');
+    if (area && !reduce) area.animate([{ fillOpacity: .22 }, { fillOpacity: .5 }, { fillOpacity: .22 }], { duration: 900, easing: 'ease-in-out' });
+    fade([...svg.querySelectorAll('.given.answer')], reduce ? 0 : 160, [{ transform: 'scale(.7)' }, { transform: 'scale(1)' }]);
+  }
+}
+
+function setMode(on) {
+  problemOnly = on;
+  $('app').classList.toggle('problem-only', on);
+  $('mode').setAttribute('aria-pressed', String(on));
+  render();
+}
+
+// focus: a chip key to single out on arrival (tapping a side name in another step)
+function go(i, focus = null) {
+  if (!steps.length) return;
+  const next = Math.max(0, Math.min(steps.length - 1, i));
+  drawIn = next !== cur; cur = next; solo = focus; render();
+  try { localStorage.setItem('geo-step', String(cur)); } catch (e) {}
+  showStep();
+}
+
+// Bring the current step fully into the reading area: below the pinned figure (on a phone, where it sits above
+// the steps) and above the fixed step bar. When it doesn't fit, its start goes right under the figure.
+function showStep() {
+  const el = document.querySelector(`.step[data-i="${cur}"]`); if (!el) return;
+  if ($('app').classList.contains('stepper')) { $('steps').scrollTop = 0; return; }
+  const fig = $('app').querySelector('.fig'), stacked = fig.getBoundingClientRect().right > el.getBoundingClientRect().left;
+  const top = (stacked ? fig.offsetHeight : 0) + 12;
+  const bottom = innerHeight - $('app').querySelector('.stepbar').offsetHeight - 12;
+  const r = el.getBoundingClientRect();
+  if (r.top >= top && r.bottom <= bottom) return;
+  // instant on purpose: content never slides under a thumb that is about to tap again
+  window.scrollBy({ top: r.bottom - r.top > bottom - top || r.top < top ? r.top - top : r.bottom - bottom, behavior: 'auto' });
+}
+
+$('steps').addEventListener('click', e => {
+  const rule = e.target.closest('.rule');
+  if (rule) { openRule(rule.dataset.rule, rule.dataset.map); return; }
+  const ref = e.target.closest('.ref');
+  if (ref) {
+    const i = +ref.dataset.i, k = ref.dataset.k;
+    if (i !== cur) { go(i, k); return; }
+    solo = solo === k ? null : k; render(); return;
+  }
+  const st = e.target.closest('.step'); if (st) go(+st.dataset.i);
+});
+$('steps').addEventListener('keydown', e => {
+  const st = e.target.closest('.step');
+  if (st && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('.ref')) { e.preventDefault(); go(+st.dataset.i); }
+});
+$('prev').addEventListener('click', () => go(cur - 1));
+$('next').addEventListener('click', () => go(cur >= steps.length - 1 ? 0 : cur + 1));
+$('mode').addEventListener('click', () => setMode(!problemOnly));
+$('hl').addEventListener('click', () => { showHl = !showHl; render(); });
+$('names').addEventListener('click', () => {
+  const on = $('names').getAttribute('aria-pressed') !== 'true';
+  $('names').setAttribute('aria-pressed', String(on));
+  $('app').classList.toggle('names', on);
+});
+
+$('sheetClose').addEventListener('click', closeRule);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeRule(); return; }
+  // ← → step through the solution, unless typing or a card is open
+  if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || problemOnly || !$('sheet').hidden || e.target.closest('textarea, input')) return;
+  e.preventDefault(); go(cur + (e.key === 'ArrowRight' ? 1 : -1));
+});
+document.addEventListener('click', e => {
+  if (!$('sheet').hidden && !$('sheet').contains(e.target) && !e.target.closest('.rule')) closeRule();
+});
+
+// Zoom: pinch (or ctrl + wheel / trackpad pinch) to zoom, drag to pan while zoomed, double-tap or Sıfırla to reset.
+function applyView() {
+  const v = view || full, svg = $('svg');
+  svg.setAttribute('viewBox', `${f(v.x)} ${f(v.y)} ${f(v.w)} ${f(v.h)}`);
+  svg.style.touchAction = view ? 'none' : '';
+  $('zoomReset').hidden = !view;
+}
+function setView(v) {
+  if (!v || v.w >= full.w * 0.98) view = null;
+  else {
+    v.x = Math.min(Math.max(v.x, full.x), full.x + full.w - v.w);
+    v.y = Math.min(Math.max(v.y, full.y), full.y + full.h - v.h);
+    view = v;
+  }
+  applyView();
+}
+function toSvg(p) {
+  const m = $('svg').getScreenCTM();
+  return m ? new DOMPoint(p.x, p.y).matrixTransform(m.inverse()) : new DOMPoint(p.x, p.y);
+}
+// Scale the view by k around a finger midpoint that moved from `from` to `to` (both screen points).
+function zoomAt(from, to, k) {
+  const v = { ...(view || full) }, before = toSvg(from);
+  v.w = Math.min(Math.max(v.w * k, full.w / 6), full.w);
+  v.h = v.w * full.h / full.w;
+  view = v; applyView();
+  const after = toSvg(to);
+  setView({ ...v, x: v.x + before.x - after.x, y: v.y + before.y - after.y });
+}
+
+const ptrs = new Map();
+let moved = false, lastTap = 0, multi = false, start = null;
+const svgEl = $('svg');
+svgEl.addEventListener('pointerdown', e => {
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  try { svgEl.setPointerCapture(e.pointerId); } catch (err) {}
+  if (ptrs.size === 1) { moved = false; multi = false; start = { x: e.clientX, y: e.clientY }; } else multi = true;
+});
+svgEl.addEventListener('pointermove', e => {
+  const old = ptrs.get(e.pointerId); if (!old) return;
+  const prev = [...ptrs.values()].map(p => ({ ...p }));
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const now = [...ptrs.values()];
+  if (ptrs.size > 1 || Math.hypot(e.clientX - old.x, e.clientY - old.y) > 3) moved = true;
+  if (now.length === 2) {
+    const mid = a => ({ x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 });
+    const dist = a => Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1;
+    zoomAt(mid(prev), mid(now), dist(prev) / dist(now));
+  } else if (now.length === 1 && view && e.buttons) {
+    const a = toSvg(old), b = toSvg(now[0]);
+    setView({ ...view, x: view.x + a.x - b.x, y: view.y + a.y - b.y });
+  }
+});
+const endPtr = e => {
+  if (!ptrs.delete(e.pointerId)) return;
+  if (e.type !== 'pointerup' || ptrs.size) return;
+  // a one-finger sideways swipe on the unzoomed figure steps through the solution
+  if (moved && !multi && !view && !problemOnly && start) {
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (Math.abs(dx) > 50 && Math.abs(dy) < Math.abs(dx) * 0.6) go(cur + (dx < 0 ? 1 : -1));
+    return;
+  }
+  if (moved) return;
+  if (e.timeStamp - lastTap < 320) { setView(null); lastTap = 0; } else lastTap = e.timeStamp;
+};
+svgEl.addEventListener('pointerup', endPtr);
+svgEl.addEventListener('pointercancel', endPtr);
+svgEl.addEventListener('wheel', e => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  const p = { x: e.clientX, y: e.clientY };
+  zoomAt(p, p, Math.exp(e.deltaY * 0.01));
+}, { passive: false });
+$('zoomReset').addEventListener('click', () => setView(null));
+
+function toggle(btn, box, open) {
+  box.hidden = open === undefined ? !box.hidden : !open;
+  btn.setAttribute('aria-expanded', String(!box.hidden));
+  layoutMode();
+}
+
+// Phone-sized screens get the one-screen stepper, except while the paste or setup panel is open (they need to scroll).
+const PHONE = matchMedia('(max-width: 819px), (max-height: 520px) and (orientation: landscape)');
+const LAND = matchMedia('(orientation: landscape)');
+function layoutMode() {
+  const on = PHONE.matches && $('pastebox').hidden && $('setupbox').hidden, was = $('app').classList.contains('stepper');
+  $('app').classList.toggle('stepper', on);
+  $('app').classList.toggle('land', on && LAND.matches);
+  if (on !== was && steps.length) showStep();
+}
+PHONE.addEventListener('change', layoutMode);
+LAND.addEventListener('change', layoutMode);
+$('qToggle').addEventListener('click', () => {
+  const open = !$('app').classList.contains('q-open');
+  $('app').classList.toggle('q-open', open);
+  $('qToggle').setAttribute('aria-expanded', String(open));
+});
+
+let toastTimer = 0;
+function toast(msg) {
+  $('toast').textContent = msg; $('toast').hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
+}
+// Sideways + fullscreen where the phone allows it. iPhones and some app views refuse both; then we ask the student to turn the phone.
+$('fsBtn').addEventListener('click', async () => {
+  if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch (e) {} return; }
+  try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  try { await screen.orientation.lock('landscape'); } catch (e) {}
+  if (!LAND.matches) toast('Telefonunu yan çevir: şekil solda, adım sağda görünür.');
+});
+const openPaste = () => { toggle($('pasteToggle'), $('pastebox'), true); $('intro').hidden = true; $('input').focus(); };
+$('pasteSetup').addEventListener('click', () => { toggle($('pasteToggle'), $('pastebox'), false); setSetup(true); $('setup').scrollIntoView({ block: 'start' }); });
+$('pasteToggle').addEventListener('click', () => {
+  if ($('pastebox').hidden) openPaste();
+  else { toggle($('pasteToggle'), $('pastebox'), false); $('intro').hidden = !isSample; }
+});
+$('introPaste').addEventListener('click', openPaste);
+const setSetup = open => { toggle($('setupToggle'), $('setupbox'), open); $('app').classList.toggle('setup-open', !$('setupbox').hidden); };
+$('setupToggle').addEventListener('click', () => setSetup());
+$('introSetup').addEventListener('click', () => { setSetup(true); $('setup').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+
+function tryDraw(text, save) {
+  $('err').textContent = '';
+  try {
+    load(parseInput(text), { sample: !save });
+    if (save) { try { localStorage.setItem('geo-last', text); localStorage.setItem('geo-step', '0'); } catch (e) {} }
+    toggle($('pasteToggle'), $('pastebox'), false);
+    window.scrollTo({ top: 0 });
+  } catch (e) { $('err').textContent = e.message; toggle($('pasteToggle'), $('pastebox'), true); }
+}
+$('drawBtn').addEventListener('click', () => tryDraw($('input').value, true));
+$('input').addEventListener('paste', () => setTimeout(() => tryDraw($('input').value, true), 0));
+$('sampleBtn').addEventListener('click', () => { $('input').value = JSON.stringify(SAMPLE, null, 2); tryDraw($('input').value, false); });
+
+$('prompt').textContent = PROMPT;
+$('copyBtn').addEventListener('click', () => {
+  const done = () => { $('copyBtn').textContent = 'Kopyalandı'; setTimeout(() => $('copyBtn').textContent = 'Talimatı kopyala', 1800); };
+  const fallback = () => { $('setupbox').querySelector('.raw').open = true; const r = document.createRange(); r.selectNodeContents($('prompt')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('copyBtn').textContent = 'Seçildi, şimdi kopyala'; };
+  try { navigator.clipboard.writeText(PROMPT).then(done, fallback); } catch (e) { fallback(); }
+});
+
+// Reopen the last pasted problem on the step you left it at; otherwise the example.
+let saved = null, savedStep = 0;
+try { saved = localStorage.getItem('geo-last'); savedStep = +localStorage.getItem('geo-step') || 0; } catch (e) {}
+try { if (saved) load(parseInput(saved), { step: savedStep }); else load(SAMPLE, { sample: true }); } catch (e) { saved = null; load(SAMPLE, { sample: true }); }
+if (saved) $('input').value = saved;
+layoutMode();
+
+// A link can carry the figure after "#": #f=<deflate-raw, base64url> (made by the skill's script) or #j=<URL-encoded JSON>.
+// The part after "#" never leaves the phone, so the problem is not sent to the server.
+async function fromHash() {
+  const m = location.hash.match(/^#([fj])=(.+)$/); if (!m) return;
+  try {
+    let text;
+    if (m[1] === 'j') text = decodeURIComponent(m[2]);
+    else {
+      const bin = atob(m[2].replace(/-/g, '+').replace(/_/g, '/'));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    }
+    let step = 0;
+    try { if (localStorage.getItem('geo-last') === text) step = +localStorage.getItem('geo-step') || 0; } catch (e) {}
+    load(parseInput(text), { step });
+    $('input').value = text;
+    try { localStorage.setItem('geo-last', text); localStorage.setItem('geo-step', String(cur)); } catch (e) {}
+    layoutMode();
+  } catch (e) {
+    $('err').textContent = 'Bu bağlantıdaki şekil açılamadı. Claude\'dan bağlantıyı tekrar göndermesini iste ya da şekil bloğunu yapıştır.';
+    toggle($('pasteToggle'), $('pastebox'), true);
+  }
+}
+addEventListener('hashchange', fromHash);
+fromHash();
+</script>
+
+</body>
+</html>
