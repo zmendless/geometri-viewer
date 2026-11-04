@@ -163,6 +163,7 @@ svg .dot { fill: var(--ink); }
 svg .plabel { fill: var(--ink); font: 400 17px var(--fig); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
 svg .given { fill: var(--ink); font: 400 15px var(--fig); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
 svg.dim .base { stroke: var(--dimink); }
+svg .base.back { stroke-width: 1.5; stroke-dasharray: 6 5; }
 svg.dim .helper { stroke: var(--dimhelper); }
 svg .base.add, svg .helper.add { stroke: var(--claude); stroke-dasharray: 7 5; }
 svg.dim .base.add, svg.dim .helper.add { stroke: var(--dimclaude); }
@@ -397,6 +398,7 @@ Kurallar:
 - Sayının nereden geldiği görünsün: bir kenarın ya da açının değerini işleme koyduğunda sayıyı çıplak yazma, [kenar:değer] yaz: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF:9] · [FB:4]", "[AB] = [AF:9] + [FB:4] = 13", "[∠ABC:40°] + [∠BCA:60°] + [∠CAB] = 180°"]. Uygulama sayıyı o kenarın rengiyle yazar ve dokununca kenarı şekilde gösterir. Ara sonuçlar (36 ÷ 4 gibi) çıplak kalabilir.
 - Kurallar: bir adımda bilinen bir kural kullandığında adını süslü parantezle yaz, uygulamada dokununca şekilli bir kart açılır. Kullanılabilenler: {oklid}, {pisagor}, {aciortay} (iç açıortay teoremi), {ikizkenar}, {ic-ters}, {yondes}, {ic-acilar}, {dis-aci}, {paralelkenar-alan}, {ucgen-alan}, {eskenar-dortgen}, {benzerlik}, {dik-kenarortay}, {30-60-90}, {45-45-90}, {ardisik-aciortay}, {cevre-aci}, {teget}. Kuralın kartındaki harfleri bu sorudaki kenarlarla eşleştir ki kartta "h = yükseklik |EF|" görünsün: {oklid h=EF p=AF k=FB}, {pisagor a=AB b=BC c=AC}. Kartlardaki harfler: oklid h p k a b c, pisagor a b c (c hipotenüs), aciortay c b x y, ucgen-alan a h, paralelkenar-alan a h, eskenar-dortgen e f. Örnek: "{oklid h=EF p=AF k=FB} ile [EF]² = [AF] · [FB]". Listede olmayan bir kural için "rules": { "anahtar": { "name": "Kuralın adı", "formula": "formül", "note": "tek cümle açıklama" } } ekle ve adımda {anahtar} yaz. Süslü parantezi başka bir şey için kullanma.
 - Koordinat düzlemi (analitik geometri): soru bir koordinat sisteminde verildiyse "axes": true ekle ve noktaları gerçek koordinatlarıyla yaz (A(2, 3) için "A": [2, 3]); uygulama x ve y eksenlerini, okları, O'yu ve birim çentiklerini çizer. Aralığı kendin seçmek için "axes": {"x": [-2, 8], "y": [-1, 6]}; birim 1 değilse "step": 2; kareli kâğıt gibi ızgara gerekiyorsa "grid": true. Bu sorularda koordinatları gerçek değerleriyle yaz, şekli germe; uzaklık, eğim ve orta nokta hesaplarını math satırlarında koordinatlarla göster.
+- Katı cisimler (küp, prizma, piramit, silindir yüzleri): köşeleri üç sayıyla yaz, "A": [x, y, z] (z derinlik); uygulama kitaptaki gibi derinliği 40° yukarı-sağa, yarı uzunlukta çizer. Arkada kalıp görünmeyen kenarları "lines" yerine "hidden" listesine yaz, kesikli çizilir: "lines": ["ABCDA", "EFGHE", "BF", "CG", "DH"], "hidden": ["AE"] gibi (hangi kenarların arkada kaldığını bu çizime göre seç). Bu çizimde dik açılar ekranda dik görünmez; derinlik yönünde "foot" ve "perp" kullanma, "mid", "on" ve köşelerin kendisi doğru çalışır. Uzunluk ve açıları gerçek 3 boyutlu ölçülerle hesapla.
 - Birden çok şekil: soruda Şekil 1, Şekil 2 gibi ayrı şekiller varsa hepsini çiz. Şekle ait alanları (points, lines, helpers, rights, equalAngles, equalSides, fills, circles, labels, unlabeled, names) üst kısım yerine "figures" listesine, her şekil için ayrı bir nesne olarak koy ve her birine kitaptaki adını ver: "figures": [{ "label": "Şekil 1", "points": {...}, "lines": [...] }, { "label": "Şekil 2", "points": {...}, "lines": [...] }]. title, question, asked, steps, answer, rules üst kısımda kalır. Her şekil kendi noktalarını kullanır; iki şekilde aynı harf olabilir. Her adıma hangi şekilden bahsettiğini yaz: "fig": 2 (1'den sayılır); yazmazsan önceki adımın şekli kalır. Adımın add kısmı o şekle eklenir. asked'e de istenen şeyin şeklini yaz: "fig": 2. Uygulama şekiller arasında geçiş düğmeleri gösterir. Tek şekilli sorularda "figures" kullanma.
 - Öğrencinin kendi çözümü: fotoğrafta öğrencinin kalemle yazdığı bir çözüm denemesi varsa (işlemler, yazdığı sayılar, şekle çizdiği çizgiler), bloğa "attempt" ekle; yoksa hiç ekleme. "attempt": {"lines": ["[AB] − [DC] = 10 − 4 = 6", "[AP] = 6"], "wrong": 2, "fix": "[AP] = 6 ÷ 2 = 3", "why": "Fark olan 6, [AP] ve [QB] olmak üzere iki eş parçaya bölünür; bir parça 3 olur."}. Uygulama bunu çözümden önce, öğretmenin kırmızı kalemi gibi gösterir.
   - lines: öğrencinin yazdığı işlemler, onun sırasıyla ve onun yazdığı gibi (kenarları [AB] diye işaretle). Okunmayan yeri tahmin etme, atla. En fazla 8 satır; uzunsa hatanın çevresini koru.
@@ -431,7 +433,7 @@ const SAMPLE = {
 const ICON = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 const ICON_NEXT = ICON('M9 5l7 7-7 7'), ICON_RESTART = ICON('M4 12a8 8 0 1 0 2.3-5.7M4 4v5h5');
 const NCOL = 5, W = 400, MAXH = 380, PAD = 40;
-const LISTS = ['lines', 'helpers', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills'];
+const LISTS = ['lines', 'helpers', 'hidden', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills'];
 // figs: every figure of the question ({ label, base, names }); base and names are the one being drawn.
 // viewFig: the figure "Sadece soru" shows.
 let figs = [], viewFig = 0;
@@ -624,6 +626,10 @@ function parseInput(text) {
 // "inter AB CD" where lines AB and CD cross, "par E AB CD" where the line through E parallel to AB meets line CD,
 // "perp E AB CD" the same with the line through E perpendicular to AB, "shift E AB" E moved by the vector A→B
 // (the fourth corner of a parallelogram). Built points may refer to each other in any order.
+// A solid's corner [x, y, z] is drawn the way books draw solids: depth z goes back up and to the right
+// at 40°, at half length. Midpoints and "on" points stay true under this drawing, perpendiculars do not.
+const project = v => v.length > 2 && Number.isFinite(v[2]) ? [v[0] + v[2] * .5 * Math.cos(.698), v[1] + v[2] * .5 * Math.sin(.698)] : v;
+
 function resolvePoints(raw) {
   const pts = {}, todo = Object.entries(raw);
   const split = s => { const ns = Object.keys(raw).sort((x, y) => y.length - x.length), out = []; let r = s;
@@ -653,7 +659,7 @@ function resolvePoints(raw) {
   for (let left = todo; left.length;) {
     const next = [];
     for (const [k, v] of left) {
-      if (Array.isArray(v)) { if (v.length < 2 || !v.slice(0, 2).every(Number.isFinite)) throw new Error(`Şekilde ${k} noktasının yeri eksik. Claude'a "şekil bloğunu tekrar gönder" yaz.`); pts[k] = v; }
+      if (Array.isArray(v)) { if (v.length < 2 || !v.slice(0, 2).every(Number.isFinite)) throw new Error(`Şekilde ${k} noktasının yeri eksik. Claude'a "şekil bloğunu tekrar gönder" yaz.`); pts[k] = project(v); }
       else { const p = build(v); if (p) pts[k] = p; else next.push([k, v]); }
     }
     if (next.length === left.length) throw new Error(`Şekilde ${next[0][0]} noktası kurulamadı ("${next[0][1]}"). Claude'a "şekil bloğunu tekrar gönder" yaz.`);
@@ -717,7 +723,7 @@ function load(data, opts = {}) {
   steps.forEach(st => {
     useFig(figs[st.fig]);
     const added = new Set(), a = st.add, key = k => { const r = parseRef(k); if (r) added.add(r.key); };
-    for (const l of [...arr(a.lines), ...arr(a.helpers)]) { const p = pathPts(l, names); if (p) p.slice(1).forEach((n, j) => added.add('s:' + [p[j], n].sort())); }
+    for (const l of [...arr(a.lines), ...arr(a.helpers), ...arr(a.hidden)]) { const p = pathPts(l, names); if (p) p.slice(1).forEach((n, j) => added.add('s:' + [p[j], n].sort())); }
     [...Object.keys(obj(a.labels)), ...Object.keys(obj(a.vars)), ...arr(a.rights), ...arr(a.fills).map(String), ...arr(a.equalAngles).flat(), ...arr(a.equalSides).flat()].forEach(key);
     const all = [...st.keys, ...st.mathKeys], hit = all.filter(k => added.has(k));
     st.focus = new Set(hit.length ? hit : [...st.keys].slice(0, 1).concat(st.keys.size ? [] : [...st.mathKeys].slice(0, 1)));
@@ -1023,7 +1029,8 @@ function drawFigure(F, o) {
     block(Array.from({ length: 49 }, (_, t) => onArc(o, rr, t * Math.PI / 24)));
     use([c.center]); out += `<circle class="${cls('base', track(added))}" cx="${f(o[0])}" cy="${f(o[1])}" r="${f(rr)}"/>`;
   }
-  for (const kind of ['lines', 'helpers']) {
+  // hidden: a solid's edges behind it, dashed like in the book
+  for (const kind of ['hidden', 'lines', 'helpers']) {
     for (const { v: l, added } of F[kind]) {
       const p = pathPts(l, nm); if (!p) continue;
       use(p); block(p.map(n => P[n]));
@@ -1032,8 +1039,8 @@ function drawFigure(F, o) {
         // revealed through a mask the pen stroke draws, so dashed lines draw in too
         const id = `pen${++masks}`;
         out += `<mask id="${id}" maskUnits="userSpaceOnUse" x="-60" y="-60" width="${D.W + 120}" height="${f(H + 120)}"><polyline class="pen" points="${pts}" pathLength="1" stroke-dasharray="1 1" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></mask>`;
-        out += `<polyline class="${cls(kind === 'lines' ? 'base' : 'helper', track(added))}" points="${pts}" mask="url(#${id})"/>`;
-      } else out += `<polyline class="${cls(kind === 'lines' ? 'base' : 'helper', track(added))}" points="${pts}"/>`;
+        out += `<polyline class="${cls(kind === 'lines' ? 'base' : kind === 'hidden' ? 'base back' : 'helper', track(added))}" points="${pts}" mask="url(#${id})"/>`;
+      } else out += `<polyline class="${cls(kind === 'lines' ? 'base' : kind === 'hidden' ? 'base back' : 'helper', track(added))}" points="${pts}"/>`;
     }
   }
   for (const { v: k, added } of F.rights) {
