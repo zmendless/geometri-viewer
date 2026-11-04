@@ -374,7 +374,7 @@ Kurallar:
   - labels'a sadece soruda verilen ve çözümde bulup kullandığın değerleri yaz. Her kenarın uzunluğunu yazma.
   - Eşit kenarlarda aynı sayıyı her kenara tekrar yazmak yerine equalSides çentiklerini kullan.
   - Noktaları birbirine çok yakın koyma; koordinatları seçerken harflerin ve sayıların sığacağı boşluk bırak.
-- rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }. Yay ölçüsü: labels'a "⌒AB": "80°" yaz (kısa yay; öbür yay için ortasındaki bir noktayla "⌒ACB"); adımlarda [⌒AB] diye an.
+- rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler; çember parçaları için "dilim O AB" (O merkezli, A ile B arasındaki daire dilimi) ve "parça AB" ([AB] kirişi ile yayı arasındaki daire parçası), uzun yay için ortasındaki bir noktayla "dilim O ACB", "parça ACB". Önce o çemberi circles'a yaz. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }. Yay ölçüsü: labels'a "⌒AB": "80°" yaz (kısa yay; öbür yay için ortasındaki bir noktayla "⌒ACB"); adımlarda [⌒AB] diye an.
 - Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
 - Eş ya da benzer üçgenler: bir adımda iki üçgenin (ya da çokgenin) eş ya da benzer olduğunu kullanıyorsan o adıma "move": ["APD", "BQC"] ekle. Uygulama △APD'nin bir kopyasını △BQC'nin üstüne kaydırır, gerekirse çevirir, büyütür ya da küçültür; öğrenci hangi köşenin, hangi kenarın hangisine denk geldiğini görür. Köşeleri eşleşen sırayla yaz (A, B'nin üstüne; P, Q'nun; D, C'nin), eşliği metinde yazdığın sırayla aynı. Bir adımda birden çok çift: "move": [["APD", "BQC"], ["ABE", "DCF"]]. Sadece eşlik ya da benzerlik çözümde gerçekten kullanılıyorsa ekle.
 - Sayı silme: bir kenarı parçalara böldüğünde ya da bir sayı artık yanıltıcı olduğunda, o adımın add.remove kısmına yaz: "remove": ["AB"]. AB üzerindeki sayı ya da değişken o adımdan itibaren silinir ("Sadece soru" kitaptaki hâlini göstermeye devam eder). Örneğin |AB| = 20 iken AB'yi H ile böldüysen ve parçaları yazıyorsan, toplamın parçalarla karışmaması için gerekiyorsa "remove": ["AB"] ekle. Sadece gerçekten kafa karıştıran sayıyı sil.
@@ -988,6 +988,18 @@ function drawFigure(F, o) {
   }
 
   for (const { v: k, added } of F.fills) {
+    // Circle pieces: "dilim O AB" is the slice from center O between A and B, "parça AB" the piece between the
+    // chord AB and its arc; a middle point ("dilim O ACB", "parça ACB") takes the arc through it, the long way round.
+    const cp = String(k).trim().match(/^(dilim|sector|parça|parca|segment)\s+(?:(\S+)\s+)?(\S+)$/i);
+    if (cp) {
+      const sector = /^(dilim|sector)$/i.test(cp[1]), o = sector && cp[2], ends = tokenize(cp[3], nm);
+      const g = ends && ends.length >= 2 && ends.length <= 3 && arcOf({ p: ends });
+      if (!g || (sector && !P[o])) continue;
+      use(ends); if (sector) use([o]);
+      const arc = arcPath(g);
+      out += `<path d="${sector ? `M${pt(P[o])} L${arc.slice(1)}` : arc} Z" style="fill:var(${track(added) ? '--claudefill' : '--fill'})"/>`;
+      continue;
+    }
     const r = ref(k); if (!r || r.type !== 'poly') continue;
     use(r.p); out += `<polygon points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:var(${track(added) ? '--claudefill' : '--fill'})"/>`;
   }
