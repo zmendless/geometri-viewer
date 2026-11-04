@@ -493,7 +493,7 @@ function openRule(key, map = '') {
   if (rule.fig) {
     const nm = Object.keys(rule.fig.points).sort((x, y) => y.length - x.length);
     const d = drawFigure(specFigure(rule.fig), { nm, dims: { W: 240, MAXH: 180, PAD: 40 }, hidePoints: rule.fig.hidePoints });
-    fig.setAttribute('viewBox', `0 0 ${d.w} ${f(d.h)}`);
+    fig.setAttribute('viewBox', `${f(d.x)} ${f(d.y)} ${f(d.w)} ${f(d.h)}`);
     fig.innerHTML = d.out;
   }
   ruleOpener = document.activeElement;
@@ -1226,7 +1226,13 @@ function drawFigure(F, o) {
     const ps = tg.p.map(n => P[n]), x = ps.reduce((a, p) => a + p[0], 0) / ps.length, y = ps.reduce((a, p) => a + p[1], 0) / ps.length;
     out += `<text class="given add answer" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${esc(o.target.value)}</text>`;
   }
-  return { out, w: D.W, h: H, anyAdded, P };
+  // Letters, numbers and dimension lines can land in the padding or past it; the drawing grows to hold them
+  // instead of spilling under whatever sits below the figure.
+  const ex = [0, D.W], ey = [0, H];
+  for (const b of boxes) ex.push(b.x - b.w / 2 - 3, b.x + b.w / 2 + 3), ey.push(b.y - b.h / 2 - 3, b.y + b.h / 2 + 3);
+  for (const sg of obst) for (const q of sg) ex.push(q[0]), ey.push(q[1]);
+  const x0 = Math.min(...ex), y0 = Math.min(...ey);
+  return { out, x: x0, y: y0, w: Math.max(...ex) - x0, h: Math.max(...ey) - y0, anyAdded, P };
 }
 
 let drawIn = false; // set by go(): the next render draws in what the new step adds
@@ -1269,7 +1275,7 @@ function render() {
   const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
   const d = drawFigure(F, { nm: names, act, near, dims: figDims(), unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
-  full = { x: 0, y: 0, w: d.w, h: d.h }; figP = d.P;
+  full = { x: d.x, y: d.y, w: d.w, h: d.h }; figP = d.P;
   svg.style.setProperty('--ar', (d.h / d.w).toFixed(3));
   applyView();
   svg.classList.toggle('dim', act.length > 0);
@@ -1280,7 +1286,9 @@ function render() {
   const moves = !problemOnly && steps[cur] && steps[cur].moves;
   if (moves && moves.length && (fresh >= 0 || replay)) playMoves(svg, d.P, moves, fresh >= 0 ? 500 : 0);
   replay = false;
-  $('legend').hidden = !d.anyAdded;
+  // the legend keeps its place while hidden ("Sadece soru", early steps), so the buttons under it never jump
+  $('legend').hidden = !steps.some(st => Object.keys(st.add || {}).length);
+  $('legend').style.visibility = d.anyAdded ? '' : 'hidden';
   $('hl').setAttribute('aria-pressed', String(showHl));
   $('app').classList.toggle('nohl', !showHl);
 
