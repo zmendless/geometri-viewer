@@ -337,6 +337,7 @@ Kurallar:
   - Noktaları birbirine çok yakın koyma; koordinatları seçerken harflerin ve sayıların sığacağı boşluk bırak.
 - rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }.
 - Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
+- Sayı silme: bir kenarı parçalara böldüğünde ya da bir sayı artık yanıltıcı olduğunda, o adımın add.remove kısmına yaz: "remove": ["AB"]. AB üzerindeki sayı ya da değişken o adımdan itibaren silinir ("Sadece soru" kitaptaki hâlini göstermeye devam eder). Örneğin |AB| = 20 iken AB'yi H ile böldüysen ve parçaları yazıyorsan, toplamın parçalarla karışmaması için gerekiyorsa "remove": ["AB"] ekle. Sadece gerçekten kafa karıştıran sayıyı sil.
 - labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
 - Senin eklediğin her şey (add içindekiler) şekilde turuncu, yeni çizgiler kesikli çizilir; kitaptakiler siyah/pembe kalır. Bu yüzden sorudaki şeyleri add'e, kendi eklediklerini üst kısma koyma.
 - Bloğu yazmadan önce kontrol et: üst kısımdaki (ya da figures içindeki) her çizgi, yardımcı çizgi, dik açı, işaret ve sayı fotoğraftaki şekilde gerçekten var mı? Kendi çizdiğin bir paralel, dikme, uzatma, köşegen ya da yeni bir nokta oraya girmişse, onu çizdiğin adımın add kısmına taşı. Yoksa daha ilk adımda, hatta "Sadece soru"da görünür ve öğrenci neyin kitapta olduğunu ayırt edemez. Kurduğun noktayı (par, perp, shift...) points'e yazmak sorun değil: nokta, onu kullanan çizgi bir adımda eklenince görünür.
@@ -674,6 +675,11 @@ function figureAt(i, fresh = -1) {
   for (const [a, j] of srcs) {
     const added = j === -2 ? false : j === fresh ? 'fresh' : true;
     for (const k of LISTS) if (k !== 'equalAngles' && k !== 'equalSides') F[k].push(...arr(a[k]).map(v => ({ v, added })));
+    // "remove": ["AB"] takes the number or variable off AB from this step on (a split side keeps no stale total)
+    for (const k of arr(a.remove)) {
+      const r = parseRef(k);
+      if (r) for (const x of Object.keys(F.labels)) { const q = parseRef(x); if (q && q.key === r.key) delete F.labels[x]; }
+    }
     for (const [k, v] of Object.entries(obj(a.labels))) putLabel(F, k, { v: String(v), added });
     for (const [k, v] of Object.entries(obj(a.vars))) putLabel(F, k, { name: String(v), added });
     mergeGroups(F.equalAngles, arr(a.equalAngles), added);
