@@ -176,10 +176,15 @@ html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hi
 .stepper .intro .long, .stepper #introPaste { display: none; }
 .stepper .intro .link { min-height: 40px; }
 .stepper .layout { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-.stepper .fig { position: relative; flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
-.stepper .fig svg { flex: 1 1 auto; min-height: 0; height: 100%; max-height: none; }
+.stepper .layout { container-type: inline-size; }
+.stepper .fig { position: relative; flex: 0 1 auto; min-height: 140px; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+/* upright phone: the drawing is only as tall as the figure needs at full width (--ar = height / width), so a wide figure leaves no empty band and the step sits right under it */
+.stepper .fig svg { flex: 0 1 auto; min-height: 0; height: calc(100cqw * var(--ar, 1)); max-height: none; }
+.land .fig { flex: 1 1 auto; }
+.land .fig svg { flex: 1 1 auto; height: 100%; }
 .stepper .legend { margin: 0 0 4px; }
-.stepper #steps { flex: 0 1 auto; max-height: 42%; overflow-y: auto; padding-bottom: 4px; overscroll-behavior: contain; }
+/* a long step scrolls before the figure shrinks much, and always keeps a few lines */
+.stepper #steps { flex: 0 4 auto; min-height: min(7.5rem, 30%); overflow-y: auto; padding-bottom: 4px; overscroll-behavior: contain; }
 .stepper .step:not(.on) { display: none; }
 .stepper .step { padding: 8px 0 8px 12px; }
 .stepper footer { display: none; }
@@ -997,6 +1002,7 @@ function render() {
   const d = drawFigure(F, { nm: names, act, unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
   full = { x: 0, y: 0, w: d.w, h: d.h };
+  svg.style.setProperty('--ar', (d.h / d.w).toFixed(3));
   applyView();
   svg.classList.toggle('dim', act.length > 0);
   svg.innerHTML = d.out;
