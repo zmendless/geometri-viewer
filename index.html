@@ -153,7 +153,8 @@ svg .given.answer { font-size: 22px; }
 svg .given.var { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 17px; }
 svg line.tgt { stroke: var(--target); stroke-width: 12; stroke-linecap: round; stroke-opacity: .55; }
 svg polygon.tgt { fill: var(--target); fill-opacity: .22; stroke: none; }
-svg path.tgt, svg circle.tgt { fill: var(--target); fill-opacity: .5; stroke: none; }
+svg path.tgt.arc { fill: none; stroke: var(--target); stroke-width: 12; stroke-linecap: round; stroke-opacity: .55; }
+svg path.tgt:not(.arc), svg circle.tgt { fill: var(--target); fill-opacity: .5; stroke: none; }
 
 /* ---- phone: one screen, no page scroll. The figure and the current step are always both in view. ----
    JS adds .stepper on phone-sized screens while no panel is open, and .land when the phone is sideways. */
@@ -342,7 +343,7 @@ Kurallar:
   - labels'a sadece soruda verilen ve çözümde bulup kullandığın değerleri yaz. Her kenarın uzunluğunu yazma.
   - Eşit kenarlarda aynı sayıyı her kenara tekrar yazmak yerine equalSides çentiklerini kullan.
   - Noktaları birbirine çok yakın koyma; koordinatları seçerken harflerin ve sayıların sığacağı boşluk bırak.
-- rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }.
+- rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }. Yay ölçüsü: labels'a "⌒AB": "80°" yaz (kısa yay; öbür yay için ortasındaki bir noktayla "⌒ACB"); adımlarda [⌒AB] diye an.
 - Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
 - Sayı silme: bir kenarı parçalara böldüğünde ya da bir sayı artık yanıltıcı olduğunda, o adımın add.remove kısmına yaz: "remove": ["AB"]. AB üzerindeki sayı ya da değişken o adımdan itibaren silinir ("Sadece soru" kitaptaki hâlini göstermeye devam eder). Örneğin |AB| = 20 iken AB'yi H ile böldüysen ve parçaları yazıyorsan, toplamın parçalarla karışmaması için gerekiyorsa "remove": ["AB"] ekle. Sadece gerçekten kafa karıştıran sayıyı sil.
 - labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
@@ -482,12 +483,15 @@ function tokenize(str, nm = names) {
 
 function parseRef(raw, nm = names) {
   let s = String(raw).replace(/\s+/g, ''), kind = null;
-  const am = s.match(/^(∠|angle)/i), tm = s.match(/^(△|Δ|∆|triangle|tri)/i);
+  const am = s.match(/^(∠|angle)/i), tm = s.match(/^(△|Δ|∆|triangle|tri)/i), ym = s.match(/^(⌒|⌢|◠|yay)/);
   if (am) { kind = 'angle'; s = s.slice(am[0].length); }
+  else if (ym) { kind = 'arc'; s = s.slice(ym[0].length); }
   else if (tm) { kind = 'poly'; s = s.slice(tm[0].length); }
   const p = tokenize(s, nm);
   if (!p || !p.length) return null;
   if (kind === 'angle') return p.length === 3 ? { type: 'angle', p, key: `a:${p[1]}:${[p[0], p[2]].sort()}`, label: p.join('') } : null;
+  // an arc on a circle: ⌒AB (the shorter one) or ⌒ACB (the one through C)
+  if (kind === 'arc') return p.length === 2 || p.length === 3 ? { type: 'arc', p, key: 'y:' + (p.length === 2 ? [...p].sort() : `${p[1]}:${[p[0], p[2]].sort()}`), label: p.join('') } : null;
   if (p.length === 1) return { type: 'point', p, key: 'p:' + p[0], label: p[0] };
   if (p.length === 2 && kind !== 'poly') return { type: 'seg', p, key: 's:' + [...p].sort(), label: p.join('') };
   if (p.length < 3) return null;
@@ -507,7 +511,7 @@ function glyph(type, c) {
 // Letters as Turkish notation writes them: AF in a sentence, |AF| in a calculation, ∠AEB, △AEB.
 function refLetters(r, inMath) {
   if (r.type === 'seg') return inMath ? `|${r.label}|` : r.label;
-  return { angle: '∠', poly: r.p.length === 3 ? '△' : '', point: '' }[r.type] + r.label;
+  return { angle: '∠', arc: '⌒', poly: r.p.length === 3 ? '△' : '', point: '' }[r.type] + r.label;
 }
 const capTr = s => s.charAt(0).toLocaleUpperCase('tr') + s.slice(1);
 
@@ -644,7 +648,7 @@ function load(data, opts = {}) {
   asked = ar && { r: ar, ref: String(ak.ref), value: ak.value != null ? String(ak.value) : '', fig: askedFig };
   $('asked').hidden = !asked;
   if (asked) {
-    const what = { seg: `|${ar.p.join('')}|`, angle: `m(${ar.p.join('')})`, poly: `A(${ar.p.join('')})`, point: ar.p[0] }[ar.type];
+    const what = { seg: `|${ar.p.join('')}|`, angle: `m(${ar.p.join('')})`, arc: `m(⌒${ar.p.join('')})`, poly: `A(${ar.p.join('')})`, point: ar.p[0] }[ar.type];
     $('askedWhat').textContent = ak.text ? String(ak.text) : `${what} kaçtır?`;
   }
   $('title').textContent = data.title || 'Geometri Görüntüleyici';
@@ -760,6 +764,21 @@ function drawFigure(F, o) {
   const { s, H, map } = frame(F, o.fit || F.circles, D), P = {};
   for (const [k, v] of Object.entries(F.points)) P[k] = map(v);
   const col = () => 'var(--focus)';
+  // An arc lies on the circle through both its ends; without a middle point it is the shorter way round.
+  const turn = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a <= -Math.PI) a += 2 * Math.PI; return a; };
+  const arcOf = r => {
+    const A = P[r.p[0]], B = P[r.p[r.p.length - 1]], M = r.p.length === 3 && P[r.p[1]]; if (!A || !B) return null;
+    for (const { v: c } of F.circles) {
+      const O = P[c.center], rr = radius(F, c) * s; if (!O || !rr) continue;
+      if ([A, B].some(Q => Math.abs(Math.hypot(Q[0] - O[0], Q[1] - O[1]) - rr) > rr * .04)) continue;
+      const a1 = Math.atan2(A[1] - O[1], A[0] - O[0]);
+      let d = turn(Math.atan2(B[1] - O[1], B[0] - O[0]) - a1);
+      if (M) { const m = turn(Math.atan2(M[1] - O[1], M[0] - O[0]) - a1); if (!(d > 0 ? m > 0 && m < d : m < 0 && m > d)) d += d > 0 ? -2 * Math.PI : 2 * Math.PI; }
+      return { O, rr, a1, d };
+    }
+    return null;
+  };
+  const arcPath = g => `M${pt(onArc(g.O, g.rr, g.a1))} A${f(g.rr)},${f(g.rr)} 0 ${Math.abs(g.d) > Math.PI ? 1 : 0} ${g.d > 0 ? 1 : 0} ${pt(onArc(g.O, g.rr, g.a1 + g.d))}`;
   const shown = new Set(), use = ps => ps && ps.forEach(n => shown.add(n));
   let out = '';
   // What letters and numbers must not sit on: every drawn line and mark (as screen segments), and labels already placed.
@@ -785,7 +804,8 @@ function drawFigure(F, o) {
     else if (tg.type === 'angle') {
       const V = P[tg.p[1]], g = angleGeom(V, P[tg.p[0]], P[tg.p[2]]);
       out += `<path class="tgt" d="M${pt(V)} L${pt(onArc(V, 30, g.a1))} ${arcTo(V, 30, g)} Z"/>`;
-    } else out += `<circle class="tgt" cx="${f(P[tg.p[0]][0])}" cy="${f(P[tg.p[0]][1])}" r="10"/>`;
+    } else if (tg.type === 'arc') { const g = arcOf(tg); if (g) out += `<path class="tgt arc" d="${arcPath(g)}"/>`; }
+    else out += `<circle class="tgt" cx="${f(P[tg.p[0]][0])}" cy="${f(P[tg.p[0]][1])}" r="10"/>`;
   }
   for (const { v: c, added } of F.circles) {
     const o = P[c.center]; if (!o) continue;
@@ -877,7 +897,8 @@ function drawFigure(F, o) {
       const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
       const d = g.right ? `M${pt(V)} L${squarePts(V, g, 16).map(pt).join(' L')} Z` : `M${pt(V)} L${pt(onArc(V, 30, g.a1))} ${arcTo(V, 30, g)} Z`;
       out += `<path class="hl" d="${d}" style="fill:${c};fill-opacity:.45"/>`;
-    } else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="7" style="fill:${c}"/>`;
+    } else if (r.type === 'arc') { const g = arcOf(r); if (g) out += `<path class="hl" d="${arcPath(g)}" style="fill:none;stroke:${c};stroke-width:5;stroke-linecap:round"/>`; }
+    else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="7" style="fill:${c}"/>`;
   }
   const all = Object.values(P), cx = all.reduce((a, p) => a + p[0], 0) / all.length, cy = all.reduce((a, p) => a + p[1], 0) / all.length;
   const labelSegs = Object.keys(F.labels).map(ref).filter(r => r && r.type === 'seg');
@@ -969,6 +990,16 @@ function drawFigure(F, o) {
         cands.push([c, i2 * 2 + j * 3 + (behind ? 100 : 0)]);
       }));
       q = best(cands, [r.p[1]]);
+    } else if (r.type === 'arc') {
+      // outside the circle at the middle of the arc, as the book writes it; inside only when outside is taken
+      const g = arcOf(r); if (!g) continue;
+      const cands = [];
+      [0, -.15, .15, -.3, .3].forEach((s2, j) => [1, -1].forEach((side, i2) => [0, 10].forEach(e => {
+        const a = g.a1 + g.d * (.5 + s2), d = [Math.cos(a) * side, Math.sin(a) * side], c = boxOf(0, 0, v, size), R = g.rr + side * (5 + e + away(d, c));
+        c.x = g.O[0] + Math.cos(a) * R; c.y = g.O[1] + Math.sin(a) * R;
+        cands.push([c, j * 3 + i2 * 8 + e / 5]);
+      })));
+      q = best(cands, []);
     } else continue;
     track(added);
     out += `<text class="${cls('given', added)}${L.name ? ' var' : ''}" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(v)}</text>`;
