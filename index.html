@@ -373,7 +373,8 @@ Kurallar:
   Bağlantı betiği yakın noktaları ve kısa kenarları ölçer ve hata verir.
 - Şekil okunaklı kalsın: çok kenar ve nokta olunca harfler ve sayılar birbirine girer, şekil okunmaz olur. Bu yüzden:
   - Sadece çözümde gerçekten kullandığın yardımcı noktaları ekle. Kesişim, orta nokta gibi noktaları sadece bir adım onlardan bahsediyorsa ekle.
-  - Harfini yazmaya gerek olmayan yardımcı noktaları "unlabeled" listesine koy: "unlabeled": ["K", "L"]. Nokta çizilir ama harfi yazılmaz. Adımlarda adı geçen noktaları bu listeye koyma.
+  - Harfini yazmaya gerek olmayan yardımcı noktaları "unlabeled" listesine koy: "unlabeled": ["K", "L"]. Nokta çizilir ama harfi yazılmaz. Adımlarda harfiyle andığın noktaları bu listeye koyma.
+  - Her şekle harf gerekmez: bağlamdan anlaşılıyorsa bir üçgenden ya da parçadan kelimeyle bahset, "küçük üçgen", "büyük üçgen", "köşedeki üçgen", "dikdörtgen taş" gibi. Yine de köşeli parantez kullan ki şekil renklensin, kelimeyi | işaretinden sonra yaz: [△PCR|köşedeki üçgen], [ABE|küçük üçgen]. Uygulama yazıda sadece kelimeyi gösterir; bu şeklin köşeleri başka bir adımda harfiyle anılmıyorsa "unlabeled" kalabilir. Aynı kelimeyi iki farklı şekil için kullanma.
   - labels'a sadece soruda verilen ve çözümde bulup kullandığın değerleri yaz. Her kenarın uzunluğunu yazma.
   - Eşit kenarlarda aynı sayıyı her kenara tekrar yazmak yerine equalSides çentiklerini kullan.
   - Noktaları birbirine çok yakın koyma; koordinatları seçerken harflerin ve sayıların sığacağı boşluk bırak.
@@ -598,6 +599,9 @@ function renderText(t, i, inMath = false, noted = new Set()) {
       html += rule ? `<button type="button" class="rule" data-rule="${esc(rk)}" data-map="${esc((map || '').trim())}">${esc(rule.name || rk)}</button>` : fmt(m);
       return;
     }
+    // [△PCR|küçük üçgen] says the words instead of the letters, so a shape needs no letters on the figure.
+    const wi = br !== undefined ? br.indexOf('|') : -1, word = wi > 0 ? br.slice(wi + 1).trim() : '';
+    if (wi > 0) br = br.slice(0, wi);
     // [AB:7] writes the number 7 in AB's color, so a value in a calculation shows which side it came from.
     const vi = br !== undefined ? br.indexOf(':') : -1, val = vi > 0 ? br.slice(vi + 1).trim() : '';
     let r = parseRef(vi > 0 ? br.slice(0, vi) : br !== undefined ? br : bar);
@@ -609,11 +613,12 @@ function renderText(t, i, inMath = false, noted = new Set()) {
     refs.set(r.key, r); (inMath && !val ? steps[i].mathKeys : steps[i].keys).add(r.key);
     if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
     const c = `var(--c${colorOf.get(r.key)})`, letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
-    const icon = r.type === 'seg' || r.type === 'point' ? glyph(r.type, 'var(--c)') : ''; // ∠ and △ already say what they are
+    const icon = !word && (r.type === 'seg' || r.type === 'point') ? glyph(r.type, 'var(--c)') : ''; // ∠ and △ already say what they are
     const said = named && before.trimEnd().toLocaleLowerCase('tr').endsWith(named.toLocaleLowerCase('tr'));
     const keep = said || /^['’]/.test(after); // the name would repeat a word or take the suffix
     let label = esc(letters);
     if (val) label = `<span class="val">${fmt(val)}</span>`;
+    else if (word) label = esc(atStart ? capTr(word) : word);
     else if (named && !keep) {
       const note = !inMath && !noted.has(r.key) ? `<span class="nt"> (${esc(named)})</span>` : '';
       noted.add(r.key);
