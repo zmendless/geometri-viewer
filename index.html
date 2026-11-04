@@ -149,6 +149,11 @@ footer { margin-top: 32px; }
 .setup-open .fig { position: static; }
 .setup-open .stepbar, .no-steps .stepbar { display: none; }
 
+svg .grid { stroke: var(--line); stroke-width: 1; }
+svg .axis { stroke: var(--fg2); stroke-width: 1.3; }
+svg .axis-tip { fill: var(--fg2); }
+svg .axn { fill: var(--muted); font: 12px var(--fig); font-variant-numeric: tabular-nums; }
+svg .axl { fill: var(--fg2); font: italic 16px var(--fig); }
 svg .base { stroke: var(--ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 svg .helper { stroke: var(--helper); stroke-width: 2.2; fill: none; stroke-linecap: round; }
 svg .mark { stroke: var(--ink); stroke-width: 1.3; fill: none; }
@@ -389,6 +394,7 @@ Kurallar:
 - math: işlem satırları. Hesabı adım metnine değil "math" listesine yaz, her satıra bir işlem; metin nedenini anlatır, math hesabı gösterir. Çarpma için · kullan. Kenarları [AF] gibi işaretle.
 - Sayının nereden geldiği görünsün: bir kenarın ya da açının değerini işleme koyduğunda sayıyı çıplak yazma, [kenar:değer] yaz: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF:9] · [FB:4]", "[AB] = [AF:9] + [FB:4] = 13", "[∠ABC:40°] + [∠BCA:60°] + [∠CAB] = 180°"]. Uygulama sayıyı o kenarın rengiyle yazar ve dokununca kenarı şekilde gösterir. Ara sonuçlar (36 ÷ 4 gibi) çıplak kalabilir.
 - Kurallar: bir adımda bilinen bir kural kullandığında adını süslü parantezle yaz, uygulamada dokununca şekilli bir kart açılır. Kullanılabilenler: {oklid}, {pisagor}, {aciortay} (iç açıortay teoremi), {ikizkenar}, {ic-ters}, {yondes}, {ic-acilar}, {dis-aci}, {paralelkenar-alan}, {ucgen-alan}, {eskenar-dortgen}, {benzerlik}, {dik-kenarortay}, {30-60-90}, {45-45-90}, {ardisik-aciortay}, {cevre-aci}, {teget}. Kuralın kartındaki harfleri bu sorudaki kenarlarla eşleştir ki kartta "h = yükseklik |EF|" görünsün: {oklid h=EF p=AF k=FB}, {pisagor a=AB b=BC c=AC}. Kartlardaki harfler: oklid h p k a b c, pisagor a b c (c hipotenüs), aciortay c b x y, ucgen-alan a h, paralelkenar-alan a h, eskenar-dortgen e f. Örnek: "{oklid h=EF p=AF k=FB} ile [EF]² = [AF] · [FB]". Listede olmayan bir kural için "rules": { "anahtar": { "name": "Kuralın adı", "formula": "formül", "note": "tek cümle açıklama" } } ekle ve adımda {anahtar} yaz. Süslü parantezi başka bir şey için kullanma.
+- Koordinat düzlemi (analitik geometri): soru bir koordinat sisteminde verildiyse "axes": true ekle ve noktaları gerçek koordinatlarıyla yaz (A(2, 3) için "A": [2, 3]); uygulama x ve y eksenlerini, okları, O'yu ve birim çentiklerini çizer. Aralığı kendin seçmek için "axes": {"x": [-2, 8], "y": [-1, 6]}; birim 1 değilse "step": 2; kareli kâğıt gibi ızgara gerekiyorsa "grid": true. Bu sorularda koordinatları gerçek değerleriyle yaz, şekli germe; uzaklık, eğim ve orta nokta hesaplarını math satırlarında koordinatlarla göster.
 - Birden çok şekil: soruda Şekil 1, Şekil 2 gibi ayrı şekiller varsa hepsini çiz. Şekle ait alanları (points, lines, helpers, rights, equalAngles, equalSides, fills, circles, labels, unlabeled, names) üst kısım yerine "figures" listesine, her şekil için ayrı bir nesne olarak koy ve her birine kitaptaki adını ver: "figures": [{ "label": "Şekil 1", "points": {...}, "lines": [...] }, { "label": "Şekil 2", "points": {...}, "lines": [...] }]. title, question, asked, steps, answer, rules üst kısımda kalır. Her şekil kendi noktalarını kullanır; iki şekilde aynı harf olabilir. Her adıma hangi şekilden bahsettiğini yaz: "fig": 2 (1'den sayılır); yazmazsan önceki adımın şekli kalır. Adımın add kısmı o şekle eklenir. asked'e de istenen şeyin şeklini yaz: "fig": 2. Uygulama şekiller arasında geçiş düğmeleri gösterir. Tek şekilli sorularda "figures" kullanma.
 - Öğrencinin kendi çözümü: fotoğrafta öğrencinin kalemle yazdığı bir çözüm denemesi varsa (işlemler, yazdığı sayılar, şekle çizdiği çizgiler), bloğa "attempt" ekle; yoksa hiç ekleme. "attempt": {"lines": ["[AB] − [DC] = 10 − 4 = 6", "[AP] = 6"], "wrong": 2, "fix": "[AP] = 6 ÷ 2 = 3", "why": "Fark olan 6, [AP] ve [QB] olmak üzere iki eş parçaya bölünür; bir parça 3 olur."}. Uygulama bunu çözümden önce, öğretmenin kırmızı kalemi gibi gösterir.
   - lines: öğrencinin yazdığı işlemler, onun sırasıyla ve onun yazdığı gibi (kenarları [AB] diye işaretle). Okunmayan yeri tahmin etme, atla. En fazla 8 satır; uzunsa hatanın çevresini koru.
@@ -662,7 +668,7 @@ function load(data, opts = {}) {
   if (list.some(d => !d || !d.points || typeof d.points !== 'object' || !Object.keys(d.points).length)) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
   sideNames = {};
   figs = list.map((d, n) => {
-    const pts = resolvePoints(d.points), fb = { points: pts, labels: obj(d.labels), unlabeled: new Set(arr(d.unlabeled).map(String)) };
+    const pts = resolvePoints(d.points), fb = { points: pts, labels: obj(d.labels), unlabeled: new Set(arr(d.unlabeled).map(String)), axes: axesOf(d.axes, pts) };
     for (const k of LISTS) fb[k] = arr(d[k]);
     const fig = { label: String(d.label || `Şekil ${n + 1}`), base: fb, names: Object.keys(pts).sort((x, y) => y.length - x.length) };
     useFig(fig);
@@ -719,6 +725,20 @@ function load(data, opts = {}) {
   cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
 }
 function useFig(g) { base = g.base; names = g.names; }
+
+// "axes": true draws a coordinate plane under the figure; { "x": [-2, 8], "y": [-1, 6], "step": 1, "grid": true }
+// picks the ranges, the unit between ticks and a squared-paper grid. Without ranges they reach one unit past the points.
+function axesOf(a, pts) {
+  if (!a) return null;
+  const o = obj(a), step = +o.step > 0 ? +o.step : 1, vs = Object.values(pts);
+  const span = (k, j) => {
+    const v = arr(o[k]).map(Number);
+    if (v.length === 2 && v.every(Number.isFinite) && v[0] < v[1]) return v;
+    const c = vs.map(p => p[j]);
+    return [Math.floor(Math.min(0, ...c) / step) * step - step, Math.ceil(Math.max(0, ...c) / step) * step + step];
+  };
+  return { x: span('x', 0), y: span('y', 1), step, grid: o.grid === true };
+}
 
 // The student's lines as a teacher marks them: checked lines, the first wrong one underlined in red with the
 // right line under it, the rest faded (they build on the mistake). The reason below can point at the figure.
@@ -813,7 +833,7 @@ const shownFig = () => problemOnly || !steps[cur] ? viewFig : steps[cur].fig;
 // Every item is { v, added }: added is false when it is in the book, true when Claude's solution drew it,
 // and 'fresh' when step `fresh` adds it (that step's additions get drawn in).
 function figureAt(i, fresh = -1) {
-  const F = { points: base.points, labels: {} };
+  const F = { points: base.points, labels: {}, axes: base.axes };
   for (const k of LISTS) F[k] = [];
   const own = s => !figs.length || s.fig === figs.indexOf(figs.find(g => g.base === base));
   const srcs = [[base, -2], ...steps.slice(0, Math.max(0, i + 1)).map((s, j) => [s.add, j]).filter(([, j]) => own(steps[j]))];
@@ -864,6 +884,7 @@ function radius(F, c) {
 function frame(F, fit, { W, MAXH, PAD }) {
   const P = F.points, xs = [], ys = [];
   for (const v of Object.values(P)) { xs.push(v[0]); ys.push(v[1]); }
+  if (F.axes) { xs.push(...F.axes.x); ys.push(...F.axes.y); }
   for (const { v: c } of fit) {
     const o = P[c.center]; if (!o) continue;
     const r = radius(F, c); xs.push(o[0] - r, o[0] + r); ys.push(o[1] - r, o[1] + r);
@@ -924,10 +945,42 @@ function drawFigure(F, o) {
   let anyAdded = false;
   const track = added => { if (added) anyAdded = true; return added; };
 
+  // The coordinate plane: grid under everything, axes with arrows, unit ticks and their numbers (every k-th one
+  // when units are small, so numbers stay apart), x, y and O, all kept clear of the figure's own letters.
+  let axesOut = '';
+  if (F.axes) {
+    const A = F.axes, [x0, x1] = A.x, [y0, y1] = A.y, ox = Math.min(Math.max(0, x0), x1), oy = Math.min(Math.max(0, y0), y1);
+    const k = Math.max(1, Math.ceil(24 / (A.step * s))), num = t => String(+t.toFixed(6)).replace('.', ',').replace('-', '−');
+    const ticks = (a, b) => { const r = []; for (let t = Math.ceil(a / A.step) * A.step; t <= b + 1e-9; t += A.step) r.push(+t.toFixed(9)); return r; };
+    if (A.grid) {
+      for (const t of ticks(x0, x1)) { const [a, b] = [map([t, y0]), map([t, y1])]; out += `<line class="grid" x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}"/>`; }
+      for (const t of ticks(y0, y1)) { const [a, b] = [map([x0, t]), map([x1, t])]; out += `<line class="grid" x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}"/>`; }
+    }
+    const xa = map([x0, oy]), xb = map([x1, oy]), ya = map([ox, y0]), yb = map([ox, y1]);
+    block([xa, xb]); block([ya, yb]);
+    axesOut += `<line class="axis" x1="${f(xa[0])}" y1="${f(xa[1])}" x2="${f(xb[0])}" y2="${f(xb[1])}"/><path class="axis-tip" d="M${f(xb[0] + 9)},${f(xb[1])} l-11,-4.5 v9 z"/>`
+      + `<line class="axis" x1="${f(ya[0])}" y1="${f(ya[1])}" x2="${f(yb[0])}" y2="${f(yb[1])}"/><path class="axis-tip" d="M${f(yb[0])},${f(yb[1] - 9)} l-4.5,11 h9 z"/>`;
+    const text = (x, y, t, c) => { boxes.push({ x, y, w: t.length * 7 + 4, h: 14 }); axesOut += `<text class="${c}" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${t}</text>`; };
+    ticks(x0, x1).forEach((t, i) => {
+      if (Math.abs(t - ox) < 1e-9 || t >= x1 - 1e-9) return;
+      const p = map([t, oy]); axesOut += `<line class="axis" x1="${f(p[0])}" y1="${f(p[1] - 4)}" x2="${f(p[0])}" y2="${f(p[1] + 4)}"/>`;
+      if (Math.round((t - ox) / A.step) % k === 0) text(p[0], p[1] + 14, num(t), 'axn');
+    });
+    ticks(y0, y1).forEach(t => {
+      if (Math.abs(t - oy) < 1e-9 || t >= y1 - 1e-9) return;
+      const p = map([ox, t]); axesOut += `<line class="axis" x1="${f(p[0] - 4)}" y1="${f(p[1])}" x2="${f(p[0] + 4)}" y2="${f(p[1])}"/>`;
+      if (Math.round((t - oy) / A.step) % k === 0) text(p[0] - 9 - num(t).length * 3.5, p[1], num(t), 'axn');
+    });
+    text(xb[0] + 4, xb[1] + 15, 'x', 'axl'); text(yb[0] + 15, yb[1] - 2, 'y', 'axl');
+    // O, unless the figure has its own point at the origin
+    if (ox === 0 && oy === 0 && !Object.values(F.points).some(q => Math.hypot(q[0], q[1]) < 1e-9)) { const p = map([0, 0]); text(p[0] - 10, p[1] + 13, 'O', 'axl'); }
+  }
+
   for (const { v: k, added } of F.fills) {
     const r = ref(k); if (!r || r.type !== 'poly') continue;
     use(r.p); out += `<polygon points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:var(${track(added) ? '--claudefill' : '--fill'})"/>`;
   }
+  out += axesOut;
   for (const r of act.filter(r => r.type === 'poly')) out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:${col(r)};fill-opacity:.16"/>`;
   // What the question asks for: a yellow underlay, like marking it in the book.
   const tg = o.target && o.target.r;
@@ -1166,7 +1219,7 @@ function figDims() {
 let lastDims = '';
 addEventListener('resize', () => requestAnimationFrame(() => {
   const k = JSON.stringify(figDims());
-  if (k !== lastDims && steps.length) { lastDims = k; view = null; autoView = false; render(); }
+  if (k !== lastDims && steps.length) { lastDims = k; view = null; autoView = false; glide++; render(); }
 }));
 
 // What a step's sentence names (and values tagged with their side) besides its main item; plain sides in a
@@ -1448,7 +1501,7 @@ function layoutMode() {
   const on = PHONE.matches && $('pastebox').hidden && $('setupbox').hidden, was = $('app').classList.contains('stepper');
   $('app').classList.toggle('stepper', on);
   $('app').classList.toggle('land', on && LAND.matches);
-  if (on !== was && steps.length) { view = null; render(); showStep(); }
+  if (on !== was && steps.length) { view = null; autoView = false; glide++; render(); showStep(); }
 }
 PHONE.addEventListener('change', layoutMode);
 LAND.addEventListener('change', layoutMode);
