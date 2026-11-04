@@ -147,6 +147,11 @@ svg.dim .helper { stroke: var(--dimhelper); }
 svg .base.add, svg .helper.add { stroke: var(--claude); stroke-dasharray: 7 5; }
 svg.dim .base.add, svg.dim .helper.add { stroke: var(--dimclaude); }
 svg .mark.add { stroke: var(--claude); stroke-width: 1.6; }
+svg .ghost polygon { fill: var(--focus); fill-opacity: .16; stroke: var(--focus); stroke-width: 2.4; stroke-linejoin: round; }
+svg .ghost circle { stroke: var(--bg); stroke-width: 1.5; }
+svg .ghost text { fill: var(--focus); font: 700 15px var(--fig); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.replay { display: flex; align-items: center; min-height: 40px; margin-top: 4px; font-size: .95rem; font-weight: 600; color: var(--focus); }
+.step:not(.on) .replay { color: var(--muted); }
 svg .dot.add { fill: var(--claude); }
 svg .given.add { fill: var(--claude); font-weight: 700; }
 svg .given.answer { font-size: 22px; }
@@ -351,6 +356,7 @@ Kurallar:
   - Noktaları birbirine çok yakın koyma; koordinatları seçerken harflerin ve sayıların sığacağı boşluk bırak.
 - rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }. Yay ölçüsü: labels'a "⌒AB": "80°" yaz (kısa yay; öbür yay için ortasındaki bir noktayla "⌒ACB"); adımlarda [⌒AB] diye an.
 - Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
+- Eş ya da benzer üçgenler: bir adımda iki üçgenin (ya da çokgenin) eş ya da benzer olduğunu kullanıyorsan o adıma "move": ["APD", "BQC"] ekle. Uygulama △APD'nin bir kopyasını △BQC'nin üstüne kaydırır, gerekirse çevirir, büyütür ya da küçültür; öğrenci hangi köşenin, hangi kenarın hangisine denk geldiğini görür. Köşeleri eşleşen sırayla yaz (A, B'nin üstüne; P, Q'nun; D, C'nin), eşliği metinde yazdığın sırayla aynı. Bir adımda birden çok çift: "move": [["APD", "BQC"], ["ABE", "DCF"]]. Sadece eşlik ya da benzerlik çözümde gerçekten kullanılıyorsa ekle.
 - Sayı silme: bir kenarı parçalara böldüğünde ya da bir sayı artık yanıltıcı olduğunda, o adımın add.remove kısmına yaz: "remove": ["AB"]. AB üzerindeki sayı ya da değişken o adımdan itibaren silinir ("Sadece soru" kitaptaki hâlini göstermeye devam eder). Örneğin |AB| = 20 iken AB'yi H ile böldüysen ve parçaları yazıyorsan, toplamın parçalarla karışmaması için gerekiyorsa "remove": ["AB"] ekle. Sadece gerçekten kafa karıştıran sayıyı sil.
 - labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
 - Senin eklediğin her şey (add içindekiler) şekilde turuncu, yeni çizgiler kesikli çizilir; kitaptakiler siyah/pembe kalır. Bu yüzden sorudaki şeyleri add'e, kendi eklediklerini üst kısma koyma.
@@ -650,7 +656,7 @@ function load(data, opts = {}) {
     if (obj(v).name) customRules[k] = { name: String(v.name), formula: String(v.formula || ''), note: String(v.note || '') };
   }
   refs = new Map(); colorOf = new Map(); view = null; closeRule();
-  steps = arr(data.steps).map(s => typeof s === 'string' ? { t: s, add: {}, math: [] } : { t: String((s && s.text) || ''), add: obj(s && s.add), math: arr(s && s.math).map(m => String(m).replace(/\s\*\s/g, ' · ')), fig: s && s.fig });
+  steps = arr(data.steps).map(s => typeof s === 'string' ? { t: s, add: {}, math: [] } : { t: String((s && s.text) || ''), add: obj(s && s.add), math: arr(s && s.math).map(m => String(m).replace(/\s\*\s/g, ' · ')), fig: s && s.fig, move: s && s.move });
   // "asked": "EC" or { "ref": "EC", "text": "|EC| = x kaç cm'dir?", "value": "9", "fig": 2 }; text is the question's own wording.
   const ak = typeof data.asked === 'string' ? { ref: data.asked } : obj(data.asked), askedFig = ak.fig != null ? figOf(ak.fig) : figs.length - 1;
   if (data.answer) steps.push({ t: String(data.answer), add: {}, answer: true, fig: askedFig + 1 });
@@ -666,7 +672,7 @@ function load(data, opts = {}) {
   }
   $('title').textContent = data.title || 'Geometri Görüntüleyici';
   $('question').textContent = data.question || '';
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), '') + `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}</li>`).join('');
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}</li>`).join('');
   isSample = !!opts.sample;
   shareText = isSample ? '' : text;
   $('shareBtn').hidden = isSample;
@@ -688,6 +694,81 @@ function load(data, opts = {}) {
   cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
 }
 function useFig(g) { base = g.base; names = g.names; }
+
+// "move": ["APD", "BQC"] slides a copy of △APD onto △BQC, A onto B, P onto Q, D onto C, so the student sees which
+// corners and sides match. Several pairs: [["APD", "BQC"], ["ABE", "DCF"]], played one after another.
+function movesOf(st) {
+  const m = arr(st.move); if (!m.length) return [];
+  return (Array.isArray(m[0]) ? m : [m]).map(pr => arr(pr).map(x => pathPts(String(x).replace(/^[△Δ∆]/, ''), names)))
+    .filter(pr => pr.length === 2 && pr[0] && pr[1] && pr[0].length >= 3 && pr[0].length === pr[1].length);
+}
+
+// The way from one shape onto the other as t goes 0 → 1, in screen coordinates: slide, turn and resize together;
+// a mirror-image match first slides and resizes, then folds over like a turned page. It ends exactly on the
+// target's corners even when the drawn shapes are only nearly congruent or similar.
+function matchPath(src, dst) {
+  const cen = ps => [0, 1].map(j => ps.reduce((t, p) => t + p[j], 0) / ps.length);
+  const cs = cen(src), cd = cen(dst), a = src.map(p => [p[0] - cs[0], p[1] - cs[1]]), b = dst.map(p => [p[0] - cd[0], p[1] - cd[1]]);
+  const area = v => v.reduce((t, p, i) => { const q = v[(i + 1) % v.length]; return t + p[0] * q[1] - p[1] * q[0]; }, 0);
+  const flip = area(a) * area(b) < 0, a2 = flip ? a.map(([x, y]) => [x, -y]) : a;
+  let dot = 0, crs = 0; a2.forEach((p, i) => { dot += p[0] * b[i][0] + p[1] * b[i][1]; crs += p[0] * b[i][1] - p[1] * b[i][0]; });
+  const th = Math.atan2(crs, dot), sq = v => v.reduce((t, p) => t + p[0] ** 2 + p[1] ** 2, 0), k = Math.sqrt(sq(b) / (sq(a) || 1));
+  const rot = (p, r) => [p[0] * Math.cos(r) - p[1] * Math.sin(r), p[0] * Math.sin(r) + p[1] * Math.cos(r)];
+  const miss = b.map((p, i) => { const q = rot(a2[i], th); return [p[0] - q[0] * k, p[1] - q[1] * k]; });
+  // mirroring over the line through the centre at angle th/2 is the same as mirroring top-bottom and turning by th
+  const u = [Math.cos(th / 2), Math.sin(th / 2)], n = [-u[1], u[0]];
+  return t => {
+    const t1 = flip ? Math.min(1, t / .45) : t, s = 1 + (k - 1) * t1, c = [cs[0] + (cd[0] - cs[0]) * t1, cs[1] + (cd[1] - cs[1]) * t1];
+    const fold = Math.cos(Math.PI * Math.max(0, (t - .45) / .55));
+    return a.map((p, i) => {
+      let q;
+      if (flip) { const pu = p[0] * u[0] + p[1] * u[1], pn = (p[0] * n[0] + p[1] * n[1]) * fold; q = [pu * u[0] + pn * n[0], pu * u[1] + pn * n[1]]; }
+      else q = rot(p, th * t);
+      return [c[0] + q[0] * s + miss[i][0] * t, c[1] + q[1] * s + miss[i][1] * t];
+    });
+  };
+}
+
+let moveRun = 0, replay = false;
+function playMoves(svg, P, pairs, wait) {
+  const run = ++moveRun, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('class', 'ghost'); g.setAttribute('aria-hidden', 'true'); svg.appendChild(g);
+  const ease = t => t < .5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2, IN = 250, MOVE = reduce ? 900 : 1600, HOLD = 1100, OUT = 350;
+  let k = 0;
+  const next = () => {
+    if (run !== moveRun) return g.remove();
+    if (k >= pairs.length) return g.remove();
+    const [from, to] = pairs[k++], src = from.map(x => P[x]), dst = to.map(x => P[x]);
+    if (src.concat(dst).some(p => !p)) return next();
+    const path = matchPath(src, dst);
+    // each corner carries a colored dot, so where it lands shows which corner it matches; its letter rides along
+    // and fades before landing, leaving the target's own letter readable
+    g.innerHTML = '<polygon/>' + from.map((x, i) => `<circle r="5" style="fill:var(--c${[1, 2, 4, 3, 0][i % 5]})"/><text text-anchor="middle" dominant-baseline="central">${esc(x)}</text>`).join('');
+    const poly = g.firstChild, dots = [...g.querySelectorAll('circle')], letters = [...g.querySelectorAll('text')];
+    const place = (ps, show) => {
+      poly.setAttribute('points', ps.map(pt).join(' '));
+      const c = [0, 1].map(j => ps.reduce((t, p) => t + p[j], 0) / ps.length);
+      dots.forEach((el, i) => { el.setAttribute('cx', f(ps[i][0])); el.setAttribute('cy', f(ps[i][1])); });
+      letters.forEach((el, i) => { const d = unit(c, ps[i]); el.setAttribute('x', f(ps[i][0] + d[0] * 15)); el.setAttribute('y', f(ps[i][1] + d[1] * 15)); el.style.opacity = String(show); });
+    };
+    let t0 = null;
+    const tick = now => {
+      if (run !== moveRun) return g.remove();
+      t0 = t0 == null ? now : t0;
+      const e = now - t0, end = IN + MOVE + HOLD;
+      if (e >= end + OUT) return next();
+      // reduced motion: the copy sits on the first shape, then appears on the second, with no travel between
+      const t = Math.min(1, Math.max(0, (e - IN) / MOVE));
+      place(path(reduce ? (t < 1 ? 0 : 1) : ease(t)), Math.min(1, (1 - t) / .25));
+      g.style.opacity = String(e < IN ? e / IN : e > end ? 1 - (e - end) / OUT : 1);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  g.style.opacity = '0';
+  setTimeout(next, wait);
+}
 // The figure on screen: the current step's, or the one picked for "Sadece soru".
 const shownFig = () => problemOnly || !steps[cur] ? viewFig : steps[cur].fig;
 
@@ -1028,7 +1109,7 @@ function drawFigure(F, o) {
     const ps = tg.p.map(n => P[n]), x = ps.reduce((a, p) => a + p[0], 0) / ps.length, y = ps.reduce((a, p) => a + p[1], 0) / ps.length;
     out += `<text class="given add answer" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${esc(o.target.value)}</text>`;
   }
-  return { out, w: D.W, h: H, anyAdded };
+  return { out, w: D.W, h: H, anyAdded, P };
 }
 
 let drawIn = false; // set by go(): the next render draws in what the new step adds
@@ -1058,6 +1139,10 @@ function render() {
   svg.innerHTML = d.out;
   svg.setAttribute('aria-label', [figs.length > 1 ? figs[shownFig()].label : 'Şekil', $('title').textContent !== 'Geometri Görüntüleyici' && $('title').textContent].filter(Boolean).join(' · '));
   if (fresh >= 0) penIn(svg, atAnswer);
+  moveRun++;
+  const moves = !problemOnly && steps[cur] && steps[cur].moves;
+  if (moves && moves.length && (fresh >= 0 || replay)) playMoves(svg, d.P, moves, fresh >= 0 ? 500 : 0);
+  replay = false;
   $('legend').hidden = !d.anyAdded;
   $('hl').setAttribute('aria-pressed', String(showHl));
   $('app').classList.toggle('nohl', !showHl);
@@ -1120,7 +1205,7 @@ function go(i, focus = null) {
 function sayStep() {
   const el = document.querySelector(`.step[data-i="${cur}"]`); if (!el) return;
   const c = el.cloneNode(true), math = [...c.querySelectorAll('.math > div')].map(m => m.textContent.trim());
-  c.querySelectorAll('.math').forEach(m => m.remove());
+  c.querySelectorAll('.math, .replay').forEach(m => m.remove());
   $('say').textContent = [steps[cur].answer ? 'Cevap' : $('count').textContent, c.textContent.trim(), ...math].map(x => x.replace(/[.\s]+$/, '')).filter(Boolean).join('. ');
 }
 
@@ -1150,6 +1235,8 @@ $('figtabs').addEventListener('click', e => {
 $('steps').addEventListener('click', e => {
   const rule = e.target.closest('.rule');
   if (rule) { openRule(rule.dataset.rule, rule.dataset.map); return; }
+  const rp = e.target.closest('.replay');
+  if (rp) { const i = +rp.closest('.step').dataset.i; if (i !== cur) go(i); else { replay = true; render(); } return; }
   const ref = e.target.closest('.ref');
   if (ref) {
     const i = +ref.dataset.i, k = ref.dataset.k;
@@ -1160,7 +1247,7 @@ $('steps').addEventListener('click', e => {
 });
 $('steps').addEventListener('keydown', e => {
   const st = e.target.closest('.step');
-  if (st && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('.ref')) { e.preventDefault(); go(+st.dataset.i); }
+  if (st && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('.ref, .replay')) { e.preventDefault(); go(+st.dataset.i); }
 });
 $('prev').addEventListener('click', () => go(cur - 1));
 $('next').addEventListener('click', () => go(cur >= steps.length - 1 ? 0 : cur + 1));
