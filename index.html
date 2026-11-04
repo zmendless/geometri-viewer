@@ -161,6 +161,8 @@ svg path.tgt, svg circle.tgt { fill: var(--target); fill-opacity: .5; stroke: no
 .top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 #fsBtn { display: none; align-items: center; gap: 6px; }
 #fsBtn svg { width: 18px; height: 18px; }
+/* read aloud by screen readers, never shown */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--bar) + 16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 25; margin: 0; max-width: min(90vw, 360px); padding: 10px 14px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: .9rem; text-align: center; }
 html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hidden; }
 #app.stepper { height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); box-sizing: border-box; padding-block: 4px 0; display: flex; flex-direction: column; }
@@ -279,7 +281,8 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
   <nav class="stepbar" aria-label="Adımlar">
     <div class="stepbar-in">
       <button class="arrow" id="prev" type="button" aria-label="Önceki adım"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <span id="count" aria-live="polite"></span>
+      <span id="count"></span>
+      <span class="sr" id="say" aria-live="polite"></span>
       <button class="arrow" id="next" type="button" aria-label="Sonraki adım"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </div>
   </nav>
@@ -1006,6 +1009,7 @@ function render() {
   applyView();
   svg.classList.toggle('dim', act.length > 0);
   svg.innerHTML = d.out;
+  svg.setAttribute('aria-label', [figs.length > 1 ? figs[shownFig()].label : 'Şekil', $('title').textContent !== 'Geometri Görüntüleyici' && $('title').textContent].filter(Boolean).join(' · '));
   if (fresh >= 0) penIn(svg, atAnswer);
   $('legend').hidden = !d.anyAdded;
   $('hl').setAttribute('aria-pressed', String(showHl));
@@ -1063,7 +1067,14 @@ function go(i, focus = null) {
   if (steps[next].fig !== steps[cur].fig) view = null;
   drawIn = next !== cur; cur = next; viewFig = steps[cur].fig; solo = focus; render();
   try { localStorage.setItem('geo-step', String(cur)); } catch (e) {}
-  showStep();
+  showStep(); sayStep();
+}
+// Screen readers hear the new step's sentence and calculation, not just "2 / 5".
+function sayStep() {
+  const el = document.querySelector(`.step[data-i="${cur}"]`); if (!el) return;
+  const c = el.cloneNode(true), math = [...c.querySelectorAll('.math > div')].map(m => m.textContent.trim());
+  c.querySelectorAll('.math').forEach(m => m.remove());
+  $('say').textContent = [steps[cur].answer ? 'Cevap' : $('count').textContent, c.textContent.trim(), ...math].map(x => x.replace(/[.\s]+$/, '')).filter(Boolean).join('. ');
 }
 
 // Bring the current step fully into the reading area: below the pinned figure (on a phone, where it sits above
