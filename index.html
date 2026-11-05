@@ -145,13 +145,16 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .mwhy { margin-left: auto; font-size: .82em; font-style: italic; color: var(--fg2); background: var(--surface); border-radius: 999px; padding: 0 7px; line-height: 1.7; }
 .idea { margin-top: 12px; padding: 8px 14px; background: color-mix(in srgb, var(--target) 22%, var(--page)); border-radius: 12px; font-weight: 400; }
 .idea > span { display: block; font: italic 600 1rem var(--serif); color: var(--fg2); }
-/* Claude's note on what the viewer lacked: for the app's maker, folded away at the end of the solution */
-.feedback { margin-top: 12px; padding-top: 6px; border-top: 1px dashed var(--line2); font-weight: 400; font-size: .9rem; color: var(--fg2); }
-.feedback summary { min-height: 40px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; color: var(--claude); list-style: none; }
-.feedback summary::-webkit-details-marker { display: none; }
-.feedback summary::after { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
-.feedback[open] summary::after { transform: rotate(225deg) translate(-1px, -1px); }
-.feedback p { margin: 0 0 6px; line-height: 1.6; white-space: pre-line; }
+/* Claude's note on what the viewer lacked: for the app's maker, far below the solution, found only by scrolling past it */
+.devnote { margin-top: 70vh; padding: 12px 0 8px; border-top: 1px dashed var(--line2); font-size: .88rem; color: var(--fg2); }
+.devnote-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-weight: 600; color: var(--muted); }
+.devnote p { margin: 4px 0 2px; line-height: 1.6; white-space: pre-line; }
+.rank { display: inline-flex; align-items: center; gap: 3px; font-size: .8rem; color: var(--fg2); }
+.rank i { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid currentColor; }
+.rank.r1 i:nth-child(-n+1), .rank.r2 i:nth-child(-n+2), .rank.r3 i { background: currentColor; }
+.rank i:last-of-type { margin-right: 3px; }
+.rank.r3 { color: var(--claude); }
+.copynote { min-height: 40px; font-size: .88rem; font-weight: 600; color: var(--fg2); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 4px; }
 .ask { display: flex; align-items: center; min-height: 40px; margin-top: 2px; font-size: .9rem; font-weight: 600; color: var(--fg2); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 4px; }
 .step:not(.on) .ask { display: none; }
 /* line by line: the line being read stays dark, the step's other lines step back */
@@ -442,7 +445,7 @@ Kurallar:
 - names (isteğe bağlı): gerekirse denklemlerde geçen önemli kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
 - En kısa yoldan çöz: sadece sorulan sonuca giden adımları yaz. Önce neye ihtiyaç olduğunu düşün (alan için taban ve yükseklik gibi) ve sadece onları bul. Sonuca katkısı olmayan bir uzunluğu, açıyı ya da değişkeni hesaplama, işaretleme ya da adlandırma.
 - idea: cevabın altında "Anahtar fikir" olarak gösterilen tek cümle. Öğrenci bir dahaki benzer soruda neyi fark edip ne yapmalı? Bu sorunun harflerini kullanmadan, genel yaz; çözümü tekrar etme. Örnek: "Döşeme sorularında taşlar kenar paylaşır: uzun bir kenarı, üzerine dizilen taş kenarlarının toplamı olarak yaz."
-- feedback: bu uygulamayı yapan kişiye kısa not. Çözümü şekilde göstermek için bir araç eksik kaldıysa (kuramadığın bir nokta, çizemediğin bir şekil ya da işaret, gösteremediğin bir hareket, eksik bir kural kartı), ne olduğunu ve neye yarayacağını bir iki cümleyle yaz: "feedback": "Bir noktayı bir doğruya göre yansıtamadım; simetri sorularında yansıyan noktayı göstermek için 'yansı P AB' gibi bir yol lazım." Cevabın en altında katlanmış durur, öğrenciyi etkilemez. Eksik bir şey yoksa yazma.
+- feedback: bu uygulamayı yapan kişiye kısa not. Çözümü şekilde göstermek için bir araç eksik kaldıysa (kuramadığın bir nokta, çizemediğin bir şekil ya da işaret, gösteremediğin bir hareket, eksik bir kural kartı), ne olduğunu ve neye yarayacağını bir iki cümleyle yaz ve önemini 1-3 arası puanla: "feedback": {"text": "Bir noktayı bir doğruya göre yansıtamadım; simetri sorularında yansıyan noktayı göstermek için 'yansı P AB' gibi bir yol lazım.", "importance": 3}. importance 3: o araç olmadan çözüm şekilde düzgün gösterilemedi; 2: gösterdim ama dolambaçlı ya da eksik kaldı; 1: olsa güzel olurdu. Not sayfanın en altında, çözümün çok aşağısında durur; öğrenci görmez. Eksik bir şey yoksa yazma.
 - AKILLI ÇÖZÜM: test kitabı soruları uzun hesap istemez; her soru, birkaç adımda bitiren bir ana fikir etrafında kurulur. Yazmaya başlamadan önce o fikri ara:
   - Sorudaki her veri bir ipucudur: neden açıortay, neden orta nokta, neden bu açı, neden bu sayılar verilmiş? Hepsini birlikte kullanan yolu düşün.
   - Önce şunlara bak: tanıdık özel üçgenler (30-60-90, 45-45-90, 3-4-5, 5-12-13, eşkenar, ikizkenar), eş ya da benzer üçgenler, bir yardımcı çizgi (paralel, dikme, uzatma, köşegen, merkezi birleştirme), şekli tamamlama, simetri, alanı iki yoldan yazma, bilinen bir teorem (Öklid, açıortay, kenarortay, çevre açı).
@@ -749,7 +752,8 @@ function resolvePoints(raw) {
 // opts: { sample: true for the built-in example, step: the step to open on }
 // A question with several figures (Şekil 1, Şekil 2) lists them in "figures"; each step says which one it is about
 // with "fig": 2 (counting from 1), and steps without it stay on the previous step's figure.
-let feedback = '';
+let feedback = null;
+const RANKS = ['', 'Düşük', 'Orta', 'Yüksek'];
 function load(data, opts = {}) {
   const text = JSON.stringify(data), many = Array.isArray(data && data.figures) && data.figures.length, list = many ? data.figures : [data];
   if (list.some(d => !d || !d.points || typeof d.points !== 'object' || !Object.keys(d.points).length)) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
@@ -792,9 +796,12 @@ function load(data, opts = {}) {
   $('question').textContent = data.question || '';
   // "idea": one sentence on the answer screen, what to recognize next time (not this problem's letters)
   const idea = data.idea ? String(data.idea) : '';
-  // "feedback": Claude's note to whoever builds this viewer, on what it lacked to show this solution; kept out of the way at the end
-  feedback = data.feedback ? String(data.feedback).trim() : '';
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('');
+  // "feedback": Claude's note to whoever builds this viewer, on what it lacked to show this solution, ranked 1-3:
+  // { "text": "...", "importance": 3 } (a plain string is an unranked note). Kept far below the solution, for the maker only.
+  const fb = typeof data.feedback === 'string' ? { text: data.feedback } : obj(data.feedback);
+  feedback = fb.text ? { text: String(fb.text).trim(), rank: [1, 2, 3].includes(+fb.importance) ? +fb.importance : 0 } : null;
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('')
+    + (feedback && feedback.text ? `<li class="devnote"><div class="devnote-top"><span>Claude'un notu: eksik araçlar</span>${feedback.rank ? `<span class="rank r${feedback.rank}" title="Önem ${feedback.rank}/3"><i></i><i></i><i></i>${RANKS[feedback.rank]}</span>` : ''}</div><p>${esc(feedback.text)}</p><button type="button" class="copynote">Notu kopyala</button></li>` : '');
   // One color per side or angle for the whole solution, so it looks the same in every step it comes back in; things
   // read in the same line get different colors. Greedy coloring in the order they first come up.
   const meets = new Map();
@@ -850,7 +857,7 @@ function sentences(t) {
   return out;
 }
 function stepHtml(s, i, idea) {
-  if (s.answer) return `<li class="step answer" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : ''}${recapHtml(i)}${feedback ? `<details class="feedback"><summary>Claude'un notu: eksik araçlar</summary><p>${esc(feedback)}</p></details>` : ''}</li>`;
+  if (s.answer) return `<li class="step answer" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : ''}${recapHtml(i)}</li>`;
   const noted = new Set(), lines = s.lines = [];
   const part = make => { lineSink = []; const html = make(lines.length); lines.push({ keys: lineSink }); lineSink = null; return html; };
   const text = sentences(s.t).map(t => part(l => `<span class="ln" data-l="${l}">${renderText(t, i, false, noted)}</span>`)).join(' ');
@@ -1565,8 +1572,10 @@ function tether(keys, afterPen) {
   const frame = now => {
     if (run !== tetherRun) return;
     for (const t of live) {
-      const c = t.chip(), m = t.mark(); if (!c || !m) { t.path.remove(); t.dot.remove(); t.land.remove(); continue; }
-      const a = c.getBoundingClientRect(), b = m.getBoundingClientRect();
+      const c = t.chip(), m = t.mark(), a = c && c.getBoundingClientRect(), v = (stepper ? $('steps') : document.documentElement).getBoundingClientRect();
+      // a word scrolled out of view lets go of its thread
+      if (!c || !m || a.bottom < Math.max(0, v.top) || a.top > Math.min(innerHeight, v.bottom)) { t.path.remove(); t.dot.remove(); t.land.remove(); continue; }
+      const b = m.getBoundingClientRect();
       const tx = b.left + b.width / 2, ty = b.top + b.height / 2;
       const sx = Math.min(Math.max(tx, a.left + 4), a.right - 4), sy = ty < a.top ? a.top - 3 : ty > a.bottom ? a.bottom + 3 : a.top + a.height / 2;
       const dx = tx - sx, dy = ty - sy, L = Math.hypot(dx, dy) || 1, k = Math.min(36, L * .12) * t.bend;
@@ -1637,6 +1646,19 @@ async function askAbout(i) {
   catch (e) { toast('Kopyalanamadı. Claude\'a ' + n + '. adımı anlamadığını yaz, daha ayrıntılı anlatsın.'); }
 }
 
+// Claude's note, copied to send to whoever builds the viewer
+async function copyNote() {
+  const t = $('title').textContent.trim(), q = $('question').textContent.trim();
+  const msg = `Geometri Görüntüleyici · Claude'un eksik araç notu\nSoru: ${t}${q ? ` · ${q}` : ''}${feedback.rank ? `\nÖnem: ${RANKS[feedback.rank]} (${feedback.rank}/3)` : ''}\nNot: ${feedback.text}`;
+  try { await navigator.clipboard.writeText(msg); toast('Not kopyalandı.'); return; } catch (e) { /* app views may block the clipboard API */ }
+  const ta = Object.assign(document.createElement('textarea'), { value: msg }); ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.append(ta); ta.select(); const ok = document.execCommand && document.execCommand('copy'); ta.remove();
+  if (ok) { toast('Not kopyalandı.'); return; }
+  // last resort: select the note so it can be copied by hand
+  const r = document.createRange(); r.selectNodeContents(document.querySelector('.devnote p')); getSelection().removeAllRanges(); getSelection().addRange(r);
+  toast('Not seçildi; Kopyala\'ya dokun.');
+}
+
 // Bring the current step fully into the reading area: below the pinned figure (on a phone, where it sits above
 // the steps) and above the fixed step bar. When it doesn't fit, its start goes right under the figure.
 function showStep() {
@@ -1673,6 +1695,7 @@ $('figtabs').addEventListener('click', e => {
 $('steps').addEventListener('click', e => {
   const rule = e.target.closest('.rule');
   if (rule) { openRule(rule.dataset.rule, rule.dataset.map); return; }
+  if (e.target.closest('.copynote')) { copyNote(); return; }
   const ask = e.target.closest('.ask');
   if (ask) { askAbout(+ask.closest('.step').dataset.i); return; }
   const rp = e.target.closest('.replay');
