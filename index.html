@@ -145,6 +145,13 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .mwhy { margin-left: auto; font-size: .82em; font-style: italic; color: var(--fg2); background: var(--surface); border-radius: 999px; padding: 0 7px; line-height: 1.7; }
 .idea { margin-top: 12px; padding: 8px 14px; background: color-mix(in srgb, var(--target) 22%, var(--page)); border-radius: 12px; font-weight: 400; }
 .idea > span { display: block; font: italic 600 1rem var(--serif); color: var(--fg2); }
+/* Claude's note on what the viewer lacked: for the app's maker, folded away at the end of the solution */
+.feedback { margin-top: 12px; padding-top: 6px; border-top: 1px dashed var(--line2); font-weight: 400; font-size: .9rem; color: var(--fg2); }
+.feedback summary { min-height: 40px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; color: var(--claude); list-style: none; }
+.feedback summary::-webkit-details-marker { display: none; }
+.feedback summary::after { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
+.feedback[open] summary::after { transform: rotate(225deg) translate(-1px, -1px); }
+.feedback p { margin: 0 0 6px; line-height: 1.6; white-space: pre-line; }
 .ask { display: flex; align-items: center; min-height: 40px; margin-top: 2px; font-size: .9rem; font-weight: 600; color: var(--fg2); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 4px; }
 .step:not(.on) .ask { display: none; }
 /* line by line: the line being read stays dark, the step's other lines step back */
@@ -204,6 +211,7 @@ svg .ghost text { fill: var(--focus); font: 700 15px var(--fig); paint-order: st
 .replay { display: flex; align-items: center; min-height: 40px; margin-top: 4px; font-size: .95rem; font-weight: 600; color: var(--focus); }
 .step:not(.on) .replay { color: var(--muted); }
 svg .dot.add { fill: var(--claude); }
+svg .plabel.add { fill: var(--claude); }
 svg .given.add { fill: var(--claude); font-weight: 700; }
 svg .given.answer { font-size: 22px; }
 svg .given.var { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 17px; }
@@ -408,6 +416,7 @@ Kurallar:
 - Fotoğraftaki renklere ("kahverengi taş", "mavi bölge") dayanma, uygulama şekli renksiz çizer. Bir parçayı harfleriyle an: "[KLMN] karesi".
 - Köşelerden türeyen noktaları hesaplama, uygulamaya kurdur: "M": "mid AB" (orta nokta), "K": "on AB 0.3" (A'dan B'ye yolun %30'u), "H": "foot E AB" (E'den AB doğrusuna dikmenin ayağı), "P": "inter AC BD" (AC ve BD doğrularının kesişimi), "F": "par E AB CD" (E'den AB'ye çizilen paralelin CD doğrusunu kestiği yer), "G": "perp E AB CD" (E'den AB'ye çizilen dikmenin CD doğrusunu kestiği yer), "D": "shift C BA" (C'yi B→A kadar kaydır: paralelkenarın dördüncü köşesi). "on AB 1.4" gibi 1'den büyük sayı kenarı B'nin ötesine uzatır. Böylece nokta tam yerinde olur, koordinat hesabıyla vakit kaybetmezsin.
 - Kendi çizimlerin: çözüm kolaylaşıyorsa şekle yardımcı çizim eklemekten çekinme. Örneğin bir noktadan bir kenara paralel ya da dik çiz, kenarı uzat, köşegen ya da yükseklik çiz, üçgeni paralelkenara tamamla, çemberin merkezini yarıçapla birleştir. Yeni noktayı yukarıdaki yollarla kur, çizgiyi o adımın add.helpers kısmına yaz; uygulama onu turuncu kesikli çizer. Çizdiğin şeyin sağladığını da işaretle: paralel çizdiysen oluşan eş açıları add.equalAngles'a, diklik varsa add.rights'a ekle ve adımda kuralın adını yaz ({ic-ters}, {yondes}). Adım metninde ne çizdiğini açıkça söyle: "[E]'den [AB]'ye paralel [EF]'yi çizelim." Sadece çözüme gerçekten yardım eden çizimleri ekle.
+- Tek başına nokta: üzerinden çizgi geçmeyen bir noktayı (çemberin merkezi, adımda andığın bir nokta, bulduğun bir kesişim) göstermek için adın listeye yaz: kitapta varsa üst kısımda "dots": ["O"], çözümde eklediysen o adımın add.dots kısmında "dots": ["K"]. Uygulama noktayı ve harfini çizer, senin eklediğini turuncu. Çizgilerin, çemberlerin ve işaretlerin uçlarındaki noktalar zaten görünür; onlar için gerekmez.
 - lines: siyah çizgiler, "ABCDA" A-B-C-D-A çizer. helpers: pembe/kırmızı yardımcı çizgiler.
 - ÇOK ÖNEMLİ — çakışma kontrolü: şekil telefonda okunaklı olmalı, hiçbir şey üst üste binmemeli. Uygulama harfleri ve sayıları çizgilerin, işaretlerin ve birbirlerinin üstüne düşmeyecek yerlere kendisi yerleştirir; senin işin ona yer bırakmak:
   - İki noktayı birbirine çok yakın koyma (şekil boyunun yaklaşık %5'inden yakın olmasın); gerekiyorsa birini "unlabeled" yap.
@@ -433,6 +442,7 @@ Kurallar:
 - names (isteğe bağlı): gerekirse denklemlerde geçen önemli kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
 - En kısa yoldan çöz: sadece sorulan sonuca giden adımları yaz. Önce neye ihtiyaç olduğunu düşün (alan için taban ve yükseklik gibi) ve sadece onları bul. Sonuca katkısı olmayan bir uzunluğu, açıyı ya da değişkeni hesaplama, işaretleme ya da adlandırma.
 - idea: cevabın altında "Anahtar fikir" olarak gösterilen tek cümle. Öğrenci bir dahaki benzer soruda neyi fark edip ne yapmalı? Bu sorunun harflerini kullanmadan, genel yaz; çözümü tekrar etme. Örnek: "Döşeme sorularında taşlar kenar paylaşır: uzun bir kenarı, üzerine dizilen taş kenarlarının toplamı olarak yaz."
+- feedback: bu uygulamayı yapan kişiye kısa not. Çözümü şekilde göstermek için bir araç eksik kaldıysa (kuramadığın bir nokta, çizemediğin bir şekil ya da işaret, gösteremediğin bir hareket, eksik bir kural kartı), ne olduğunu ve neye yarayacağını bir iki cümleyle yaz: "feedback": "Bir noktayı bir doğruya göre yansıtamadım; simetri sorularında yansıyan noktayı göstermek için 'yansı P AB' gibi bir yol lazım." Cevabın en altında katlanmış durur, öğrenciyi etkilemez. Eksik bir şey yoksa yazma.
 - AKILLI ÇÖZÜM: test kitabı soruları uzun hesap istemez; her soru, birkaç adımda bitiren bir ana fikir etrafında kurulur. Yazmaya başlamadan önce o fikri ara:
   - Sorudaki her veri bir ipucudur: neden açıortay, neden orta nokta, neden bu açı, neden bu sayılar verilmiş? Hepsini birlikte kullanan yolu düşün.
   - Önce şunlara bak: tanıdık özel üçgenler (30-60-90, 45-45-90, 3-4-5, 5-12-13, eşkenar, ikizkenar), eş ya da benzer üçgenler, bir yardımcı çizgi (paralel, dikme, uzatma, köşegen, merkezi birleştirme), şekli tamamlama, simetri, alanı iki yoldan yazma, bilinen bir teorem (Öklid, açıortay, kenarortay, çevre açı).
@@ -491,7 +501,7 @@ const SAMPLE = {
 const ICON = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 const ICON_NEXT = ICON('M9 5l7 7-7 7'), ICON_RESTART = ICON('M4 12a8 8 0 1 0 2.3-5.7M4 4v5h5');
 const NCOL = 5, NHL = 4, W = 400, MAXH = 380, PAD = 40;
-const LISTS = ['lines', 'helpers', 'hidden', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills'];
+const LISTS = ['lines', 'helpers', 'hidden', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills', 'dots'];
 // figs: every figure of the question ({ label, base, names }); base and names are the one being drawn.
 // viewFig: the figure "Sadece soru" shows.
 let figs = [], viewFig = 0;
@@ -739,6 +749,7 @@ function resolvePoints(raw) {
 // opts: { sample: true for the built-in example, step: the step to open on }
 // A question with several figures (Şekil 1, Şekil 2) lists them in "figures"; each step says which one it is about
 // with "fig": 2 (counting from 1), and steps without it stay on the previous step's figure.
+let feedback = '';
 function load(data, opts = {}) {
   const text = JSON.stringify(data), many = Array.isArray(data && data.figures) && data.figures.length, list = many ? data.figures : [data];
   if (list.some(d => !d || !d.points || typeof d.points !== 'object' || !Object.keys(d.points).length)) throw new Error('Bu blokta çizilecek nokta yok. Claude\'a "şekil bloğunu tekrar gönder" yaz.');
@@ -781,6 +792,8 @@ function load(data, opts = {}) {
   $('question').textContent = data.question || '';
   // "idea": one sentence on the answer screen, what to recognize next time (not this problem's letters)
   const idea = data.idea ? String(data.idea) : '';
+  // "feedback": Claude's note to whoever builds this viewer, on what it lacked to show this solution; kept out of the way at the end
+  feedback = data.feedback ? String(data.feedback).trim() : '';
   $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('');
   // One color per side or angle for the whole solution, so it looks the same in every step it comes back in; things
   // read in the same line get different colors. Greedy coloring in the order they first come up.
@@ -837,7 +850,7 @@ function sentences(t) {
   return out;
 }
 function stepHtml(s, i, idea) {
-  if (s.answer) return `<li class="step answer" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : ''}${recapHtml(i)}</li>`;
+  if (s.answer) return `<li class="step answer" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : ''}${recapHtml(i)}${feedback ? `<details class="feedback"><summary>Claude'un notu: eksik araçlar</summary><p>${esc(feedback)}</p></details>` : ''}</li>`;
   const noted = new Set(), lines = s.lines = [];
   const part = make => { lineSink = []; const html = make(lines.length); lines.push({ keys: lineSink }); lineSink = null; return html; };
   const text = sentences(s.t).map(t => part(l => `<span class="ln" data-l="${l}">${renderText(t, i, false, noted)}</span>`)).join(' ');
@@ -1072,6 +1085,9 @@ function drawFigure(F, o) {
   let masks = 0;
   let anyAdded = false;
   const track = added => { if (added) anyAdded = true; return added; };
+  // a point on its own (a center, a point Claude names), drawn even when no line or mark goes through it
+  const ownDot = new Map(), lone = new Set();
+  for (const { v: k, added } of F.dots) if (P[k]) { use([k]); lone.add(k); if (added) ownDot.set(k, track(added)); }
 
   // The coordinate plane: grid under everything, axes with arrows, unit ticks and their numbers (every k-th one
   // when units are small, so numbers stay apart), x, y and O, all kept clear of the figure's own letters.
@@ -1373,9 +1389,10 @@ function drawFigure(F, o) {
   }
   for (const { r, n, added } of [...dimTicks.values()]) if (!dimLine(r, outward(r), '', 0, added)) sideTicks(r, n, added);
   for (const k of letters) {
-    const p = P[k], q = spots[k];
-    out += `<circle class="dot" cx="${f(p[0])}" cy="${f(p[1])}" r="2.2"/><text class="plabel" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(k)}</text>`;
+    const p = P[k], q = spots[k], a = ownDot.get(k);
+    out += `<circle class="${cls('dot', a)}" cx="${f(p[0])}" cy="${f(p[1])}" r="${lone.has(k) ? 3 : 2.2}"/><text class="${cls('plabel', a)}" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(k)}</text>`;
   }
+  for (const k of lone) if (!letters.includes(k)) out += `<circle class="${cls('dot', ownDot.get(k))}" cx="${f(P[k][0])}" cy="${f(P[k][1])}" r="3"/>`;
   if (tg && tg.type === 'poly' && o.target.value) {
     const ps = tg.p.map(n => P[n]), x = ps.reduce((a, p) => a + p[0], 0) / ps.length, y = ps.reduce((a, p) => a + p[1], 0) / ps.length;
     out += `<text class="given add answer" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${esc(o.target.value)}</text>`;
