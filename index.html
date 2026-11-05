@@ -10,10 +10,14 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* layout: one quiet column; figure pinned on top, steps beneath, step controls fixed in the thumb zone at the bottom;
-   two columns on wide screens. Single light theme on purpose: the figure is a printed page. */
+   two columns on wide screens. Single light theme on purpose: a study notebook, warm paper with the figure on graph paper. */
 :root {
-  --bg: #ffffff; --fg: #16181c; --fg2: #3d4148; --muted: #646a73; --line: #ececee; --line2: #d5d8dd; --off: #b9bdc4;
-  --ink: #1a1a1a; --helper: #c2185b; --fill: #f6d3e3; --dimink: #a9adb4; --dimhelper: #e7a9c1; --err: #b42318;
+  --bg: #fbf8f1; --fg: #1d1b17; --fg2: #423d34; --muted: #6a6457; --line: #ebe4d6; --line2: #d8cfbd; --off: #bdb5a5;
+  --page: #fffdf8; --surface: #f3ede1; /* a sheet laid on the paper, and the paper's darker tone for wells */
+  --grid: rgba(96, 128, 168, .13); --grid2: rgba(96, 128, 168, .22); /* graph paper under the figure */
+  --serif: ui-serif, 'New York', 'Iowan Old Style', 'Noto Serif', Georgia, serif;
+  --lift: 0 1px 2px rgba(70, 52, 20, .06), 0 8px 24px -6px rgba(70, 52, 20, .12);
+  --ink: #1a1a1a; --helper: #c2185b; --fill: #f6d3e3; --dimink: #b3ab9b; --dimhelper: #e7a9c1; --err: #b42318;
   --target: #ffd23f; /* what the question asks for */
   /* step colors and Claude's orange are dark enough for 3:1+ on the yellow "asked" marking and 4.5:1+ on white */
   --focus: #2563eb; /* the one thing each step is about */
@@ -32,34 +36,35 @@
 body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--sans); caret-color: var(--fg); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 ::selection { background: #ffe58a; color: var(--fg); }
+* { scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
 .wrap { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px calc(var(--bar) + 40px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 button:focus-visible, .step:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 4px; }
 @media (hover: hover) {
   .tog:not([aria-pressed="true"]):hover { border-color: var(--fg2); color: var(--fg); }
-  .arrow:not(:disabled):not(#next):hover, #next.restart:hover { background: #f5f6f8; }
+  .arrow:not(:disabled):not(#next):hover, #next.restart:hover { background: var(--surface); }
   .rule:hover { text-decoration-style: solid; }
 }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
-h1 { font-size: 1rem; font-weight: 600; margin: 0; text-wrap: balance; }
+h1 { font: 600 1.15rem/1.3 var(--serif); margin: 0; text-wrap: balance; }
 .link { color: var(--fg2); font-size: .92rem; font-weight: 600; min-height: 44px; padding: 0 2px; }
 .link:hover { color: var(--fg); }
 #question { color: var(--fg2); font-size: .95rem; margin: 2px 0 0; white-space: pre-line; }
 .asked { font-size: .95rem; margin: 8px 0 0; }
-.tgt-chip { background: var(--target); border-radius: 4px; padding: 1px 6px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tgt-chip { background: linear-gradient(transparent 12%, var(--target) 12%, var(--target) 92%, transparent 92%); border-radius: .35em .2em .4em .25em; padding: 0 .3em; font-weight: 600; font-variant-numeric: tabular-nums; -webkit-box-decoration-break: clone; box-decoration-break: clone; line-height: 1.55; }
 
 /* first visit: the example problem says it is one, and shows how to bring your own */
-.intro { margin-top: 10px; padding: 10px 12px; background: #f5f6f8; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
+.intro { margin-top: 10px; padding: 10px 12px; background: var(--surface); border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
 .intro p { margin: 0; font-size: .92rem; color: var(--fg2); }
 .intro p b { color: var(--fg); }
 .intro .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
-.primary { min-height: 44px; padding: 0 18px; border-radius: 10px; background: var(--fg); color: var(--bg); font-weight: 600; font-size: .95rem; }
-.primary:hover { background: #2c3038; }
+.primary { min-height: 44px; padding: 0 18px; border-radius: 12px; background: var(--fg); color: var(--bg); font-weight: 600; font-size: .95rem; }
+.primary:hover { background: #38332a; }
 
 .panel { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .panel p { margin: 0; color: var(--fg2); font-size: .92rem; }
-textarea, pre, #shareUrl { width: 100%; box-sizing: border-box; font: 13px/1.45 var(--mono); background: #f5f6f8; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+textarea, pre, #shareUrl { width: 100%; box-sizing: border-box; font: 13px/1.45 var(--mono); background: var(--page); color: var(--fg); border: 1px solid var(--line2); border-radius: 10px; padding: 10px; }
 textarea { min-height: 140px; resize: vertical; }
 textarea::placeholder { color: var(--muted); }
 pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
@@ -68,43 +73,46 @@ pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
 #err:empty { display: none; }
 
 .layout { display: grid; gap: 8px; margin-top: 10px; }
-.fig { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-.fig svg { display: block; width: 100%; max-height: 46vh; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.fig { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-bottom: 6px; }
+.fig svg { display: block; width: 100%; max-height: 46vh; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  background-color: var(--page); border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line);
+  background-image: linear-gradient(var(--grid2) 1px, transparent 1px), linear-gradient(90deg, var(--grid2) 1px, transparent 1px), linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px; background-position: -1px -1px; }
 .legend { display: block; text-align: right; margin: -2px 0 6px; color: var(--claude); font-size: .8rem; font-weight: 600; white-space: nowrap; }
 .legend::before { content: ""; display: inline-block; width: 16px; border-top: 2px dashed var(--claude); vertical-align: middle; margin-right: 6px; }
-.figtabs { position: absolute; top: 0; left: 0; z-index: 1; display: flex; gap: 6px; }
-.figtabs .tog { background: var(--bg); }
-.zoomreset { position: absolute; top: 0; right: 0; font-size: .85rem; font-weight: 600; background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 0 14px; min-height: 44px; }
+.figtabs { position: absolute; top: 8px; left: 8px; z-index: 1; display: flex; gap: 6px; }
+.figtabs .tog { background: var(--page); }
+.zoomreset { position: absolute; top: 8px; right: 8px; font-size: .85rem; font-weight: 600; background: var(--page); border: 1px solid var(--line2); border-radius: 999px; box-shadow: var(--lift); padding: 0 14px; min-height: 44px; }
 
 /* view switches: one look for all three, pressed = filled */
 .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
-.tog { min-height: 40px; padding: 0 14px; border: 1px solid var(--line2); border-radius: 999px; font-size: .88rem; font-weight: 600; color: var(--fg2); position: relative; }
+.tog { min-height: 40px; padding: 0 14px; background: var(--page); border: 1px solid var(--line2); border-radius: 999px; font-size: .88rem; font-weight: 600; color: var(--fg2); position: relative; }
 .tog::after { content: ""; position: absolute; inset: -2px 0; } /* 44px tap height */
 .tog[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
 
 /* step controls: fixed in the thumb zone, same place on every step */
 .stepbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
 .stepbar-in { max-width: 560px; margin: 0 auto; height: var(--bar); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
-.arrow { width: 72px; height: 52px; display: grid; place-items: center; border-radius: 12px; color: var(--fg); }
+.arrow { width: 72px; height: 52px; display: grid; place-items: center; border-radius: 16px; color: var(--fg); }
 .arrow svg { width: 26px; height: 26px; }
 #prev { justify-self: start; }
-#next { justify-self: end; background: var(--fg); color: var(--bg); }
-#next.restart { background: none; color: var(--fg); border: 1px solid var(--line2); }
-.arrow:disabled, #next:disabled { color: var(--off); background: none; border: 0; cursor: default; }
+#next { justify-self: end; background: var(--fg); color: var(--page); box-shadow: 0 6px 14px -6px rgba(29, 27, 23, .55); }
+#next.restart { background: var(--page); color: var(--fg); border: 1px solid var(--line2); box-shadow: none; }
+.arrow:disabled, #next:disabled { color: var(--off); background: none; border: 0; box-shadow: none; cursor: default; }
 #count { min-width: 7ch; text-align: center; color: var(--fg2); font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .rule { font-weight: 600; text-decoration: underline dotted 2px; text-underline-offset: 4px; position: relative; padding: 2px 0; }
 .rule::after { content: ""; position: absolute; inset: -8px -2px; }
-.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-height: 72vh; overflow: auto; background: var(--bg); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .08); padding-top: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-height: 72vh; overflow: auto; background: var(--page); border-top: 1px solid var(--line); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 32px rgba(70, 52, 20, .12); padding-top: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .sheet-in { max-width: 520px; margin: 0 auto; }
 .sheet-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.sheet h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.sheet h2 { font: 600 1.1rem/1.3 var(--serif); margin: 0; }
 #sheetFig { display: block; width: 100%; max-width: 280px; margin: 6px auto 0; }
 .formula { font-size: 1.15rem; font-weight: 600; white-space: pre-line; text-align: center; margin: 8px 0; font-variant-numeric: tabular-nums; }
 .note { color: var(--fg2); font-size: .92rem; margin: 0; }
 .note:empty { display: none; }
 .note .primary { margin-top: 8px; }
-.mapping { margin: 0 0 10px; padding: 8px 12px; background: #f5f6f8; border-radius: 8px; font-size: .95rem; display: flex; flex-direction: column; gap: 2px; }
+.mapping { margin: 0 0 10px; padding: 8px 12px; background: var(--surface); border-radius: 8px; font-size: .95rem; display: flex; flex-direction: column; gap: 2px; }
 .mapping b { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; font-size: 1.05rem; }
 .mapping span { border-bottom: 2px solid var(--c, transparent); font-weight: 600; }
 .sheet .link { min-width: 44px; }
@@ -117,8 +125,8 @@ pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
 }
 ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 @media (max-width: 819px) { #steps { padding-bottom: 35vh; } }
-.step { padding: 12px 0 12px 14px; border-left: 2px solid transparent; color: var(--muted); cursor: pointer; overflow-wrap: anywhere; line-height: 1.95; }
-.step.on { border-left-color: var(--fg); color: var(--fg); }
+.step { padding: 12px 16px; margin: 2px 0; border: 1px solid transparent; border-radius: 16px; color: var(--muted); cursor: pointer; overflow-wrap: anywhere; line-height: 1.95; }
+.step.on { background: var(--page); border-color: var(--line); box-shadow: var(--lift); color: var(--fg); }
 .step.answer { font-weight: 600; }
 .recap { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 400; font-size: .95rem; color: var(--fg2); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
 .recap > span { flex-basis: 100%; }
@@ -134,9 +142,9 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .attempt .why { margin: 6px 0 0; }
 /* a calculation line and, on the right, why it holds: the two columns of a written proof */
 .mrow { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; }
-.mwhy { margin-left: auto; font-size: .82em; color: var(--fg2); background: var(--line); border-radius: 6px; padding: 0 7px; line-height: 1.7; }
-.idea { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 400; }
-.idea > span { display: block; font-size: .85rem; font-weight: 700; color: var(--fg2); }
+.mwhy { margin-left: auto; font-size: .82em; font-style: italic; color: var(--fg2); background: var(--surface); border-radius: 999px; padding: 0 7px; line-height: 1.7; }
+.idea { margin-top: 12px; padding: 8px 14px; background: color-mix(in srgb, var(--target) 22%, var(--page)); border-radius: 12px; font-weight: 400; }
+.idea > span { display: block; font: italic 600 1rem var(--serif); color: var(--fg2); }
 .ask { display: flex; align-items: center; min-height: 40px; margin-top: 2px; font-size: .9rem; font-weight: 600; color: var(--fg2); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 4px; }
 .step:not(.on) .ask { display: none; }
 /* line by line: the line being read stays dark, the step's other lines step back */
@@ -144,13 +152,14 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .step.on .ln:not(.cur) { color: var(--muted); }
 .step.on .ln:not(.cur) .ref { color: inherit; }
 /* the line being read, again right under the drawing on wide screens, so the eyes stay on the figure */
-.cap { display: none; margin: 2px 0 6px; padding: 6px 12px; border-radius: 10px; background: #f5f6f8; font-size: 1.05rem; line-height: 1.95; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.cap { display: none; margin: 8px 0 6px; padding: 6px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font-size: 1.05rem; line-height: 1.95; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 @media (min-width: 820px) { #app:not(.stepper) .cap { display: block; } }
 #count { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
 #count .dots { display: flex; gap: 4px; margin-top: 4px; }
-#count .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line2); }
-#count .dots i.on { background: var(--fg2); }
-.math { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line2); font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
+#count .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line2); transition: width .2s; }
+#count .dots i.on { background: var(--fg2); width: 12px; border-radius: 3px; }
+.math { margin-top: 8px; padding: 6px 12px; background: var(--surface); border-radius: 12px; font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
+.step:not(.on) .math { background: none; padding-block: 0; }
 .ref { --c: var(--dimink); display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
 .ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
 .ref.focus, .ref.solo { --c: var(--focus); }
@@ -211,7 +220,7 @@ svg path.tgt:not(.arc), svg circle.tgt { fill: var(--target); fill-opacity: .5; 
 #fsBtn svg { width: 18px; height: 18px; }
 /* read aloud by screen readers, never shown */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.toast { position: fixed; left: 50%; bottom: calc(var(--bar) + 16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 25; margin: 0; max-width: min(90vw, 360px); padding: 10px 14px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: .9rem; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: calc(var(--bar) + 16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 25; margin: 0; max-width: min(90vw, 360px); padding: 10px 16px; border-radius: 14px; box-shadow: var(--lift); background: var(--fg); color: var(--bg); font-size: .9rem; text-align: center; }
 html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hidden; }
 #app.stepper { height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); box-sizing: border-box; padding-block: 4px 0; display: flex; flex-direction: column; }
 .stepper .phone-only, .stepper #fsBtn { display: inline-flex; align-items: center; }
@@ -227,7 +236,7 @@ html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hi
 .stepper .intro .link { min-height: 40px; }
 .stepper .layout { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .stepper .layout { container-type: inline-size; }
-.stepper .fig { position: relative; flex: 0 1 auto; min-height: 140px; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+.stepper .fig { position: relative; flex: 0 1 auto; min-height: 140px; display: flex; flex-direction: column; }
 /* upright phone: the drawing is only as tall as the figure needs at full width (--ar = height / width), so a wide figure leaves no empty band and the step sits right under it */
 .stepper .fig svg { flex: 0 1 auto; min-height: 0; height: calc(100cqw * var(--ar, 1)); max-height: none; }
 .land .fig { flex: 1 1 auto; }
@@ -236,11 +245,11 @@ html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hi
 /* a long step scrolls before the figure shrinks much, and always keeps a few lines */
 .stepper #steps { flex: 0 4 auto; min-height: min(7.5rem, 30%); overflow-y: auto; padding-bottom: 4px; overscroll-behavior: contain; }
 .stepper .step:not(.on) { display: none; }
-.stepper .step { padding: 8px 0 8px 12px; }
+.stepper .step { padding: 8px 14px; margin: 6px 0 0; }
 .stepper footer { display: none; }
 /* upright phone: the bar sits under the figure (JS moves it there), never at the screen's bottom edge, where an app's own
    toolbar (the Claude app's) can cover it; the step text below gets room to scroll up from under such a toolbar */
-.stepper:not(.land) .stepbar { border-top: 0; border-bottom: 1px solid var(--line); }
+.stepper:not(.land) .stepbar { border-top: 0; }
 .stepper:not(.land) #steps { padding-bottom: 88px; }
 .stepper:not(.land) .toast { bottom: auto; top: 40%; }
 .stepper .stepbar { position: static; flex: none; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))) calc(-1 * max(16px, env(safe-area-inset-right, 0px))); }
