@@ -129,6 +129,13 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .attempt .fix { padding-left: 1.1em; font-weight: 600; }
 .attempt .after { padding-left: 1.1em; opacity: .5; }
 .attempt .why { margin: 6px 0 0; }
+/* a calculation line and, on the right, why it holds: the two columns of a written proof */
+.mrow { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; }
+.mwhy { margin-left: auto; font-size: .82em; color: var(--fg2); background: var(--line); border-radius: 6px; padding: 0 7px; line-height: 1.7; }
+.idea { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 400; }
+.idea > span { display: block; font-size: .85rem; font-weight: 700; color: var(--fg2); }
+.ask { display: flex; align-items: center; min-height: 40px; margin-top: 2px; font-size: .9rem; font-weight: 600; color: var(--fg2); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 4px; }
+.step:not(.on) .ask { display: none; }
 .math { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line2); font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
 .ref { --c: var(--dimink); display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
 .ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
@@ -346,10 +353,11 @@ const PROMPT = `Sana bir geometri sorusu gönderdiğimde (genelde fotoğraf), so
 "asked":{"ref":"ABCD","text":"A(ABCD) kaç cm²?","value":"78"},
 "steps":[
 {"text":"Alan için taban ve yükseklik lazım. Yükseklik [EF] = 6 verilmiş, eksik olan taban [AB]. [FB] = 4 belli, [AF]'yi bulmalıyız."},
-{"text":"Açıortaylar açıları ikiye böler; yarılara α ve β diyelim. Paralelkenarda yan yana iki açının toplamı 180° olduğu için α + β = 90°, bu yüzden [△AEB]'de kalan [∠AEB] = 90°.","math":["2α + 2β = 180°","α + β = 90°","[∠AEB] = 180° − (α + β) = 90°"],"add":{"vars":{"∠EAB":"α","∠ABE":"β"},"rights":["∠AEB"]}},
+{"text":"Açıortaylar açıları ikiye böler; yarılara α ve β diyelim. Paralelkenarda yan yana iki açının toplamı 180° olduğu için α + β = 90°, bu yüzden [△AEB]'de kalan [∠AEB] = 90°.","math":["2α + 2β = 180°   (komşu açılar)","α + β = 90°","[∠AEB] = 180° − (α + β) = 90°   (iç açılar toplamı)"],"add":{"vars":{"∠EAB":"α","∠ABE":"β"},"rights":["∠AEB"]}},
 {"text":"[△AEB] dik üçgen ve [EF] hipotenüse inen yükseklik olduğu için {oklid h=EF p=AF k=FB} kullanılır: yüksekliğin karesi, ayırdığı iki parçanın çarpımına eşittir.","math":["[EF:6]² = [AF] · [FB:4]","[AF] = 36 ÷ 4 = 9","[AB] = [AF:9] + [FB:4] = 13"],"add":{"labels":{"AF":"9","AB":"13"}}}
 ],
-"answer":"A(ABCD) = [AB:13] · [EF:6] = 78 cm² → E"}
+"answer":"A(ABCD) = [AB:13] · [EF:6] = 78 cm² → E",
+"idea":"Paralelkenarda komşu iki açının açıortayları dik kesişir; dik üçgende hipotenüse inen yükseklik görünce Öklid bağıntısını dene."}
 
 
 Kurallar:
@@ -387,6 +395,7 @@ Kurallar:
 - Bloğu yazmadan önce kontrol et: üst kısımdaki (ya da figures içindeki) her çizgi, yardımcı çizgi, dik açı, işaret ve sayı fotoğraftaki şekilde gerçekten var mı? Kendi çizdiğin bir paralel, dikme, uzatma, köşegen ya da yeni bir nokta oraya girmişse, onu çizdiğin adımın add kısmına taşı. Yoksa daha ilk adımda, hatta "Sadece soru"da görünür ve öğrenci neyin kitapta olduğunu ayırt edemez. Kurduğun noktayı (par, perp, shift...) points'e yazmak sorun değil: nokta, onu kullanan çizgi bir adımda eklenince görünür.
 - names (isteğe bağlı): gerekirse denklemlerde geçen önemli kenarlara kısa, anlaşılır adlar ver (taban, yükseklik, köşegen, sol parça, hipotenüs, yarıçap...). Uygulama kenarı sınavdaki gibi harfle yazar (EF, |EF|) ve adını her adımda ilk geçtiği yerde küçük bir not olarak ekler: "EF (yükseklik)". Bu yüzden adı köşeli parantezin hemen önüne yazma: "yükseklik [EF]" değil, "[EF]". Aynı adı iki kenara verme.
 - En kısa yoldan çöz: sadece sorulan sonuca giden adımları yaz. Önce neye ihtiyaç olduğunu düşün (alan için taban ve yükseklik gibi) ve sadece onları bul. Sonuca katkısı olmayan bir uzunluğu, açıyı ya da değişkeni hesaplama, işaretleme ya da adlandırma.
+- idea: cevabın altında "Anahtar fikir" olarak gösterilen tek cümle. Öğrenci bir dahaki benzer soruda neyi fark edip ne yapmalı? Bu sorunun harflerini kullanmadan, genel yaz; çözümü tekrar etme. Örnek: "Döşeme sorularında taşlar kenar paylaşır: uzun bir kenarı, üzerine dizilen taş kenarlarının toplamı olarak yaz."
 - AKILLI ÇÖZÜM: test kitabı soruları uzun hesap istemez; her soru, birkaç adımda bitiren bir ana fikir etrafında kurulur. Yazmaya başlamadan önce o fikri ara:
   - Sorudaki her veri bir ipucudur: neden açıortay, neden orta nokta, neden bu açı, neden bu sayılar verilmiş? Hepsini birlikte kullanan yolu düşün.
   - Önce şunlara bak: tanıdık özel üçgenler (30-60-90, 45-45-90, 3-4-5, 5-12-13, eşkenar, ikizkenar), eş ya da benzer üçgenler, bir yardımcı çizgi (paralel, dikme, uzatma, köşegen, merkezi birleştirme), şekli tamamlama, simetri, alanı iki yoldan yazma, bilinen bir teorem (Öklid, açıortay, kenarortay, çevre açı).
@@ -400,6 +409,7 @@ Kurallar:
   - "Açıktır", "kolayca", "buradan" gibi adım atlamaları yapma; hiçbir sonuç gerekçesiz gelmesin. Ama gereksiz tekrar da yapma, math satırlarındaki hesabı cümleyle yeniden anlatma.
   - İSPAT GİBİ YAZ: her eşitlik ya verilenden, ya bir kuraldan, ya da daha önceki bir adımın sonucundan gelir, ve hangisinden geldiği yazılıdır. Öğrenci hiçbir satırda "bu nereden çıktı?" diye geri dönüp aramak zorunda kalmamalı.
   - Önceki bir adımın sonucunu kullanırken (yerine koyma, ikisini birleştirme) onu o anda açıkça yeniden yaz: metinde "x + y = 10 bulmuştuk, yerine koyalım" de, math'te yerine koyduğun satırı ayrı göster: "6 + 2 · (x + y)", "= 6 + 2 · 10   (x + y = 10)", "= 26". Bir ifadeyi önceki sonuca benzetmek için düzenliyorsan (2x + 2y'yi 2(x + y) yapmak gibi) bunu da ayrı satırda göster ve nedenini söyle ("x + y'yi biliyoruz, o yüzden onu ortaya çıkaralım").
+  - Gerekçe sütunu: bir math satırı verilenden, bir kuraldan ya da önceki bir sonuçtan geliyorsa gerekçesini satırın sonuna en az iki boşluk bırakıp parantez içinde kısaca yaz: "2α + 2β = 180°   (komşu açılar)", "= 6 + 2 · 10   (x + y = 10)", "[AF] = 9   (2. adım)". Uygulama gerekçeyi hesabın sağında ayrı bir etiket olarak gösterir, yazılı ispatın gerekçe sütunu gibi. Düz aritmetik satırlara gerekçe yazma.
   - Bloğu yazmadan önce her math satırını kontrol et: bir önceki satırdan nasıl geçildiği ya da kullanılan bilgi görünüyor mu? Görünmüyorsa satır ya da kısa bir not ekle.
 - steps: her adımda tek fikir. Şekilde gösterilmesi gereken kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle; uygulama işaretlediğin her şeyi renkli çizer, bu yüzden bir adımda sadece o adımın asıl konusu olan 1-3 şeyi işaretle (dikme çizerken dikme ve indiği kenar yeter). İşaretler: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
 - asked: sorunun ne istediği, HER zaman yaz. "ref": uzunluk için "EC", açı için "∠ABC", alan için "ABCD" ya da "△ABC". "text": sorunun soru cümlesi, kitaptaki gibi aynen ("A(ABCD) kaç cm²?", "|EC| = x kaç cm'dir?"). "value": kısa cevap ("78", "9", "40°"). İstenen şey şekilde sarıyla işaretlenir. Kitap bilinmeyene bir ad verdiyse (EC üzerinde "x" gibi) onu labels'a yaz; vermediyse uygulama "?" yazar.
@@ -432,12 +442,13 @@ const SAMPLE = {
   names: { EF: "yükseklik", AB: "taban", AF: "sol parça", FB: "sağ parça" },
   steps: [
     { text: "Alan için taban ve yükseklik lazım. Yükseklik [EF] = 6 verilmiş, eksik olan taban [AB]. [FB] = 4 belli, [AF]'yi bulmalıyız." },
-    { text: "Açıortaylar açıları ikiye böler; yarılara α ve β diyelim. Paralelkenarda yan yana iki açının toplamı 180°. Bu yüzden [△AEB]'de kalan [∠AEB] = 90° ({ardisik-aciortay}).", math: ["2α + 2β = 180°", "α + β = 90°", "[∠AEB] = 180° − (α + β) = 90°"], add: { vars: { "∠DAE": "α", "∠EAB": "α", "∠ABE": "β", "∠EBC": "β" }, rights: ["∠AEB"] } },
-    { text: "[△AEB] dik üçgen ve [EF] hipotenüse inen yükseklik, {oklid h=EF p=AF k=FB}:", math: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF] · [FB:4]", "[AF] = 36 ÷ 4 = 9"], add: { labels: { AF: "9" } } },
+    { text: "Açıortaylar açıları ikiye böler; yarılara α ve β diyelim. Paralelkenarda yan yana iki açının toplamı 180°. Bu yüzden [△AEB]'de kalan [∠AEB] = 90° ({ardisik-aciortay}).", math: ["2α + 2β = 180°   (komşu açılar)", "α + β = 90°", "[∠AEB] = 180° − (α + β) = 90°   (iç açılar toplamı)"], add: { vars: { "∠DAE": "α", "∠EAB": "α", "∠ABE": "β", "∠EBC": "β" }, rights: ["∠AEB"] } },
+    { text: "[△AEB] dik üçgen ve [EF] hipotenüse inen yükseklik, {oklid h=EF p=AF k=FB}:", math: ["[EF]² = [AF] · [FB]", "[EF:6]² = [AF] · [FB:4]   (verilenler)", "[AF] = 36 ÷ 4 = 9"], add: { labels: { AF: "9" } } },
     { text: "Taban iki parçanın toplamı:", math: ["[AB] = [AF:9] + [FB:4] = 13"], add: { labels: { AB: "13" } } },
     { text: "{paralelkenar-alan}:", math: ["[AB] · [EF] = [AB:13] · [EF:6] = 78"] }
   ],
-  answer: "A(ABCD) = 78 cm² → E şıkkı"
+  answer: "A(ABCD) = 78 cm² → E şıkkı",
+  idea: "Paralelkenarda komşu iki açının açıortayları dik kesişir; dik üçgende hipotenüse inen yükseklik görünce Öklid bağıntısını dene."
 };
 
 const ICON = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -730,7 +741,9 @@ function load(data, opts = {}) {
   }
   $('title').textContent = data.title || 'Geometri Görüntüleyici';
   $('question').textContent = data.question || '';
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => `<div>${renderText(m, i, true)}</div>`).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}${s.answer ? recapHtml(i) : ''}</li>`)).join('');
+  // "idea": one sentence on the answer screen, what to recognize next time (not this problem's letters)
+  const idea = data.idea ? String(data.idea) : '';
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => mathRow(m, i)).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}${s.answer ? (idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : '') + recapHtml(i) : '<button class="ask" type="button">Bu adımı anlamadım</button>'}</li>`)).join('');
   isSample = !!opts.sample;
   shareText = isSample ? '' : text;
   $('shareBtn').hidden = isSample;
@@ -752,6 +765,13 @@ function load(data, opts = {}) {
   cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
 }
 function useFig(g) { base = g.base; names = g.names; }
+
+// A math line may end with its reason after two or more spaces: "= 6 + 2 · 10   (x + y = 10)". The reason sits apart
+// on the right, so it isn't read as part of the calculation.
+function mathRow(m, i) {
+  const w = m.match(/^(.*?\S)\s{2,}\((.+)\)\s*$/);
+  return w ? `<div class="mrow"><span>${renderText(w[1], i, true)}</span><span class="mwhy">${renderText(w[2], i, true)}</span></div>` : `<div>${renderText(m, i, true)}</div>`;
+}
 
 // The answer ends with the method: every rule the solution used, as the same cards, in the order they came up,
 // so the student leaves with what to try on the next question and not only the number.
@@ -1380,14 +1400,27 @@ function go(i, focus = null) {
   showStep(); sayStep();
 }
 // Screen readers hear the new step's sentence and calculation, not just "2 / 5".
-function sayStep() {
-  const el = document.querySelector(`.step[data-i="${cur}"]`); if (!el) return;
-  // read what is on screen: letters or side names (not both glued together), without the replay button
+// A step as plain lines, as it is on screen: letters or side names (not both glued together), no buttons;
+// why(reason) words each math line's reason.
+function stepLines(i, named, why) {
+  const el = document.querySelector(`.step[data-i="${i}"]`); if (!el) return [];
   const c = el.cloneNode(true);
-  c.querySelectorAll($('app').classList.contains('names') ? '.replay, .ref .lt' : '.replay, .ref .nm').forEach(m => m.remove());
+  c.querySelectorAll(named ? '.replay, .ask, .ref .lt' : '.replay, .ask, .ref .nm').forEach(m => m.remove());
+  c.querySelectorAll('.mwhy').forEach(w => { w.textContent = why(w.textContent.trim()); });
   const math = [...c.querySelectorAll('.math > div')].map(m => m.textContent.trim());
   c.querySelectorAll('.math').forEach(m => m.remove());
-  $('say').textContent = [steps[cur].answer ? 'Cevap' : $('count').textContent, c.textContent.trim(), ...math].map(x => x.replace(/[.:,\s]+$/, '')).filter(Boolean).join('. ');
+  return [c.textContent.trim(), ...math];
+}
+function sayStep() {
+  const lines = stepLines(cur, $('app').classList.contains('names'), w => `, çünkü ${w}`); if (!lines.length) return;
+  $('say').textContent = [steps[cur].answer ? 'Cevap' : $('count').textContent, ...lines].map(x => x.replace(/[.:,\s]+$/, '')).filter(Boolean).join('. ');
+}
+// "Bu adımı anlamadım": a question about this step, copied to paste back into the chat with Claude, who then explains it in words.
+async function askAbout(i) {
+  const n = i + 1 - (steps[0] && steps[0].attempt ? 1 : 0), q = $('question').textContent.trim();
+  const msg = `"${$('title').textContent}" sorusunun çözümünde ${n}. adımı anlamadım.${q ? `\nSoru: ${q}` : ''}\n\n${n}. adım:\n${stepLines(i, false, w => `   (${w})`).join('\n')}\n\nBu adımı daha basit ve daha ayrıntılı, yazıyla anlat: her bilginin nereden geldiğini ve neden bu yolu seçtiğimizi göster.`;
+  try { await navigator.clipboard.writeText(msg); toast('Kopyalandı. Claude\'la konuştuğun yere yapıştır; bu adımı daha ayrıntılı anlatsın.'); }
+  catch (e) { toast('Kopyalanamadı. Claude\'a ' + n + '. adımı anlamadığını yaz, daha ayrıntılı anlatsın.'); }
 }
 
 // Bring the current step fully into the reading area: below the pinned figure (on a phone, where it sits above
@@ -1416,6 +1449,8 @@ $('figtabs').addEventListener('click', e => {
 $('steps').addEventListener('click', e => {
   const rule = e.target.closest('.rule');
   if (rule) { openRule(rule.dataset.rule, rule.dataset.map); return; }
+  const ask = e.target.closest('.ask');
+  if (ask) { askAbout(+ask.closest('.step').dataset.i); return; }
   const rp = e.target.closest('.replay');
   if (rp) { const i = +rp.closest('.step').dataset.i; if (i !== cur) go(i); else { replay = true; render(); } return; }
   const ref = e.target.closest('.ref');
@@ -1428,7 +1463,7 @@ $('steps').addEventListener('click', e => {
 });
 $('steps').addEventListener('keydown', e => {
   const st = e.target.closest('.step');
-  if (st && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('.ref, .replay')) { e.preventDefault(); go(+st.dataset.i); }
+  if (st && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('.ref, .replay, .ask')) { e.preventDefault(); go(+st.dataset.i); }
 });
 $('prev').addEventListener('click', () => go(cur - 1));
 $('next').addEventListener('click', () => go(cur >= steps.length - 1 ? 0 : cur + 1));
