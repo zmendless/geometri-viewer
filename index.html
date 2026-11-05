@@ -128,6 +128,9 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .recap { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 400; font-size: .95rem; color: var(--fg2); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
 .recap > span { flex-basis: 100%; }
 .step.later { display: none; } /* steps not reached yet: the answer is never on screen before its step */
+.intro .q { margin: 0; white-space: pre-line; }
+.intro .q-asked { margin: 8px 0 0; font-weight: 400; }
+.intro .q-go { margin: 8px 0 0; font-size: .9rem; color: var(--muted); }
 .att-head { font-size: .9rem; font-weight: 700; color: var(--fg2); }
 .attempt .tick { display: inline-block; width: 1.1em; font-weight: 700; }
 .attempt .ok .tick { color: var(--c2); }
@@ -783,6 +786,8 @@ function load(data, opts = {}) {
   const at0 = obj(data.attempt), tried = arr(at0.lines).map(String).filter(Boolean);
   if (tried.length) steps.unshift({ t: String(at0.why || ''), add: {}, math: [], fig: at0.fig != null ? at0.fig : steps.length ? steps[0].fig : askedFig + 1,
     attempt: { lines: tried, wrong: Math.max(0, Math.min(tried.length, Math.round(+at0.wrong) || 0)), fix: at0.fix ? String(at0.fix) : '' } });
+  // Step 0: just the question on the book's figure, so the student meets the problem before any of the solution
+  if (steps.length) steps.unshift({ t: '', add: {}, math: [], fig: steps[0].fig != null ? steps[0].fig : askedFig + 1, intro: true });
   let at = 0;
   steps.forEach(s => { s.keys = new Set(); s.mathKeys = new Set(); at = s.fig != null ? figOf(s.fig) : at; s.fig = at; });
   useFig(figs[askedFig]);
@@ -801,7 +806,7 @@ function load(data, opts = {}) {
   // { "text": "...", "importance": 3 } (a plain string is an unranked note). Kept far below the solution, for the maker only.
   const fb = typeof data.feedback === 'string' ? { text: data.feedback } : obj(data.feedback);
   feedback = fb.text ? { text: String(fb.text).trim(), rank: [1, 2, 3].includes(+fb.importance) ? +fb.importance : 0 } : null;
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('')
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.intro ? introHtml(i) : s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('')
     + (feedback && feedback.text ? `<li class="devnote"><div class="devnote-top"><span>Claude'un notu: eksik araçlar</span>${feedback.rank ? `<span class="rank r${feedback.rank}" title="Önem ${feedback.rank}/3"><i></i><i></i><i></i>${RANKS[feedback.rank]}</span>` : ''}</div><p>${esc(feedback.text)}</p><button type="button" class="copynote">Notu kopyala</button></li>` : '');
   // One color per side or angle for the whole solution, so it looks the same in every step it comes back in; things
   // read in the same line get different colors. Greedy coloring in the order they first come up.
@@ -891,6 +896,13 @@ function axesOf(a, pts) {
 
 // The student's lines as a teacher marks them: checked lines, the first wrong one underlined in red with the
 // right line under it, the rest faded (they build on the mistake). The reason below can point at the figure.
+function introHtml(i) {
+  const q = $('question').textContent.trim(), a = asked ? $('askedWhat').textContent.trim() : '';
+  return `<li class="step intro" tabindex="0" data-i="${i}">${q ? `<p class="q">${esc(q)}</p>` : ''}${a ? `<p class="q-asked"><span class="tgt-chip">${esc(a)}</span></p>` : ''}<p class="q-go">Önce kendin dene, sonra › ile çözüme geç.</p></li>`;
+}
+// Steps before the numbered ones (the question, the student's own attempt) get no number
+const numOf = i => i + 1 - steps.filter(s => s.intro || s.attempt).length;
+
 function attemptHtml(s, i) {
   const { lines, wrong, fix } = s.attempt;
   const row = (l, n) => {
@@ -1495,8 +1507,8 @@ function render() {
   $('cap').querySelectorAll('button').forEach(b => { b.tabIndex = -1; });
   $('cap').hidden = !capEl;
   // the answer screen counts too, so the last step never reads as the end
-  const nl = L ? st.lines.length : 0, nSteps = steps.filter(s => !s.attempt).length, end = cur >= steps.length - 1 && line >= nl - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
-  $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].attempt ? 'Senin çözümün' : `${cur + 1 - skip} / ${nSteps}`;
+  const nl = L ? st.lines.length : 0, nSteps = steps.filter(s => !s.attempt && !s.intro).length, end = cur >= steps.length - 1 && line >= nl - 1;
+  $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].intro ? 'Soru' : steps[cur].attempt ? 'Senin çözümün' : `${numOf(cur)} / ${nSteps}`;
   if (nl > 1) $('count').insertAdjacentHTML('beforeend', `<span class="dots" aria-hidden="true">${st.lines.map((_, j) => `<i${j === line ? ' class="on"' : ''}></i>`).join('')}</span>`);
   $('app').classList.toggle('no-steps', !steps.length);
   $('prev').disabled = cur <= 0 && line <= 0;
@@ -1641,7 +1653,7 @@ function sayStep() {
 }
 // "Bu adımı anlamadım": a question about this step, copied to paste back into the chat with Claude, who then explains it in words.
 async function askAbout(i) {
-  const n = i + 1 - (steps[0] && steps[0].attempt ? 1 : 0), q = $('question').textContent.trim();
+  const n = numOf(i), q = $('question').textContent.trim();
   const msg = `"${$('title').textContent}" sorusunun çözümünde ${n}. adımı anlamadım.${q ? `\nSoru: ${q}` : ''}\n\n${n}. adım:\n${stepLines(i, false, w => `   (${w})`).join('\n')}\n\nBu adımı daha basit ve daha ayrıntılı, yazıyla anlat: her bilginin nereden geldiğini ve neden bu yolu seçtiğimizi göster.`;
   try { await navigator.clipboard.writeText(msg); toast('Kopyalandı. Claude\'la konuştuğun yere yapıştır; bu adımı daha ayrıntılı anlatsın.'); }
   catch (e) { toast('Kopyalanamadı. Claude\'a ' + n + '. adımı anlamadığını yaz, daha ayrıntılı anlatsın.'); }
