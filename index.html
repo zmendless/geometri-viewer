@@ -18,6 +18,9 @@
   /* step colors and Claude's orange are dark enough for 3:1+ on the yellow "asked" marking and 4.5:1+ on white */
   --focus: #2563eb; /* the one thing each step is about */
   --c0: #2563eb; --c1: #db2777; --c2: #15803d; --c3: #7c4a1e; --c4: #7c3aed;
+  /* what a line names, on the figure and under its word: four colors that mean nothing else on the page (black last: the figure turns grey while something is lit)
+     (not the book's pink, Claude's orange or the asked yellow), each side or angle keeping its color all solution long */
+  --hl0: #2563eb; --hl1: #15803d; --hl2: #7c3aed; --hl3: #16181c;
   /* everything Claude's solution adds to the book figure */
   --claude: #c2410c; --claudefill: #fbe3d2; --dimclaude: #f0b493;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -467,7 +470,7 @@ const SAMPLE = {
 
 const ICON = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 const ICON_NEXT = ICON('M9 5l7 7-7 7'), ICON_RESTART = ICON('M4 12a8 8 0 1 0 2.3-5.7M4 4v5h5');
-const NCOL = 5, W = 400, MAXH = 380, PAD = 40;
+const NCOL = 5, NHL = 4, W = 400, MAXH = 380, PAD = 40;
 const LISTS = ['lines', 'helpers', 'hidden', 'circles', 'rights', 'equalAngles', 'equalSides', 'fills'];
 // figs: every figure of the question ({ label, base, names }); base and names are the one being drawn.
 // viewFig: the figure "Sadece soru" shows.
@@ -526,7 +529,7 @@ function openRule(key, map = '') {
   const rows = map.split(/\s+/).filter(Boolean).map(pair => {
     const [v, k] = pair.split('='), r = parseRef(k || '');
     if (!v || !r) return '';
-    const named = sideNames[r.key], c = colorOf.has(r.key) ? `var(--c${colorOf.get(r.key)})` : 'transparent';
+    const named = sideNames[r.key], c = colorOf.has(r.key) ? `var(--hl${colorOf.get(r.key)})` : 'transparent';
     return `<div><b>${esc(v)}</b> = <span style="--c:${c}">${esc(named || refLetters(r, true))}</span>${named ? ` ${esc(refLetters(r, true))}` : ''}</div>`;
   }).join('');
   $('sheetMap').innerHTML = rows ? `<div>Bu soruda:</div>${rows}` : '';
@@ -638,8 +641,7 @@ function renderText(t, i, inMath = false, noted = new Set()) {
     // calculation stays a colored chip and lights up when tapped, so one small step doesn't paint the whole figure.
     refs.set(r.key, r); (inMath && !val ? steps[i].mathKeys : steps[i].keys).add(r.key);
     if (lineSink && !lineSink.includes(r.key)) lineSink.push(r.key);
-    if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
-    const c = `var(--c${colorOf.get(r.key)})`, letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
+    const letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
     const icon = !word && (r.type === 'seg' || r.type === 'point') ? glyph(r.type, 'var(--c)') : ''; // ∠ and △ already say what they are
     const said = named && before.trimEnd().toLocaleLowerCase('tr').endsWith(named.toLocaleLowerCase('tr'));
     const keep = said || /^['’]/.test(after); // the name would repeat a word or take the suffix
@@ -760,6 +762,19 @@ function load(data, opts = {}) {
   // "idea": one sentence on the answer screen, what to recognize next time (not this problem's letters)
   const idea = data.idea ? String(data.idea) : '';
   $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('');
+  // One color per side or angle for the whole solution, so it looks the same in every step it comes back in; things
+  // read in the same line get different colors. Greedy coloring in the order they first come up.
+  const meets = new Map();
+  for (const s of steps) for (const L of s.lines || []) for (const k of L.keys) {
+    if (!meets.has(k)) meets.set(k, new Set());
+    L.keys.forEach(o => o !== k && meets.get(k).add(o));
+  }
+  for (const [k, ks] of meets) {
+    const uses = Array(NHL).fill(0); ks.forEach(o => colorOf.has(o) && uses[colorOf.get(o)]++);
+    colorOf.set(k, uses.indexOf(Math.min(...uses)));
+  }
+  const colors = new Map([...colorOf].map(([k, c]) => [k, `var(--hl${c})`]));
+  steps.forEach(s => { if (s.lines) s.colors = colors; });
   isSample = !!opts.sample;
   shareText = isSample ? '' : text;
   $('shareBtn').hidden = isSample;
@@ -807,8 +822,6 @@ function stepHtml(s, i, idea) {
   const part = make => { lineSink = []; const html = make(lines.length); lines.push({ keys: lineSink }); lineSink = null; return html; };
   const text = sentences(s.t).map(t => part(l => `<span class="ln" data-l="${l}">${renderText(t, i, false, noted)}</span>`)).join(' ');
   const math = (s.math || []).map(m => part(l => mathRow(m, i, l))).join('');
-  s.colors = new Map();
-  for (const L of lines) for (const k of L.keys) if (!s.colors.has(k)) s.colors.set(k, `var(--c${s.colors.size % NCOL})`);
   return `<li class="step" tabindex="0" data-i="${i}">${text}${math ? `<div class="math">${math}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}<button class="ask" type="button">Bu adımı anlamadım</button></li>`;
 }
 
