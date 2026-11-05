@@ -136,6 +136,17 @@ ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .idea > span { display: block; font-size: .85rem; font-weight: 700; color: var(--fg2); }
 .ask { display: flex; align-items: center; min-height: 40px; margin-top: 2px; font-size: .9rem; font-weight: 600; color: var(--fg2); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 4px; }
 .step:not(.on) .ask { display: none; }
+/* line by line: the line being read stays dark, the step's other lines step back */
+.ln { cursor: pointer; }
+.step.on .ln:not(.cur) { color: var(--muted); }
+.step.on .ln:not(.cur) .ref { color: inherit; }
+/* the line being read, again right under the drawing on wide screens, so the eyes stay on the figure */
+.cap { display: none; margin: 2px 0 6px; padding: 6px 12px; border-radius: 10px; background: #f5f6f8; font-size: 1.05rem; line-height: 1.95; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+@media (min-width: 820px) { #app:not(.stepper) .cap { display: block; } }
+#count { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+#count .dots { display: flex; gap: 4px; margin-top: 4px; }
+#count .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line2); }
+#count .dots i.on { background: var(--fg2); }
 .math { margin-top: 6px; padding-left: 12px; border-left: 1px solid var(--line2); font-size: 1.05rem; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
 .ref { --c: var(--dimink); display: inline-flex; align-items: baseline; gap: 4px; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--c); line-height: 1.3; padding: 1px 1px 0; position: relative; }
 .ref::after { content: ""; position: absolute; inset: -4px -1px; } /* bigger tap area without moving the text */
@@ -293,6 +304,7 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
     <div class="fig">
       <div class="figtabs" id="figtabs" role="group" aria-label="Şekiller" hidden></div>
       <svg id="svg" role="img" aria-label="Şekil"></svg>
+      <div class="cap" id="cap" aria-hidden="true" hidden></div>
       <span class="legend" id="legend" hidden>Claude ekledi</span>
       <button class="zoomreset" id="zoomReset" type="button" hidden>Sıfırla</button>
       <div class="toggles" role="group" aria-label="Görünüm">
@@ -389,7 +401,9 @@ Kurallar:
 - rights: dik açı, köşe ortada ("∠EFB" F'de). equalAngles / equalSides: eşit açı / kenar grupları. fills: pembe bölgeler; çember parçaları için "dilim O AB" (O merkezli, A ile B arasındaki daire dilimi) ve "parça AB" ([AB] kirişi ile yayı arasındaki daire parçası), uzun yay için ortasındaki bir noktayla "dilim O ACB", "parça ACB". Önce o çemberi circles'a yaz. circles: { "center": "O", "r": 5 } ya da { "center": "O", "through": "A" }. Yay ölçüsü: labels'a "⌒AB": "80°" yaz (kısa yay; öbür yay için ortasındaki bir noktayla "⌒ACB"); adımlarda [⌒AB] diye an.
 - Eşitlik işaretleri: bir adımda iki kenarın eşit olduğunu bulursan (ikizkenar, paralelkenarın karşı kenarları, orta nokta, eş üçgenler...) o adımın add.equalSides kısmına ekle; iki açının eşit olduğunu bulursan (iç ters, yöndeş, ters açılar, ikizkenarın taban açıları...) add.equalAngles kısmına ekle. Bu işaretler şekilde kitaptaki gibi çentik olarak kalır, silinmez. Zaten işaretli bir gruba eklemek için gruptaki bir elemanı da yaz: [["∠EAB", "∠AED"]] yazınca ∠AED, ∠EAB'nin grubuna katılır ve aynı çentik sayısını alır. Gerçekten eşit olmayan şeyleri işaretleme.
 - Eş ya da benzer üçgenler: bir adımda iki üçgenin (ya da çokgenin) eş ya da benzer olduğunu kullanıyorsan o adıma "move": ["APD", "BQC"] ekle. Uygulama △APD'nin bir kopyasını △BQC'nin üstüne kaydırır, gerekirse çevirir, büyütür ya da küçültür; öğrenci hangi köşenin, hangi kenarın hangisine denk geldiğini görür. Köşeleri eşleşen sırayla yaz (A, B'nin üstüne; P, Q'nun; D, C'nin), eşliği metinde yazdığın sırayla aynı. Bir adımda birden çok çift: "move": [["APD", "BQC"], ["ABE", "DCF"]]. Sadece eşlik ya da benzerlik çözümde gerçekten kullanılıyorsa ekle.
-- Sayı silme: bir kenarı parçalara böldüğünde ya da bir sayı artık yanıltıcı olduğunda, o adımın add.remove kısmına yaz: "remove": ["AB"]. AB üzerindeki sayı ya da değişken o adımdan itibaren silinir ("Sadece soru" kitaptaki hâlini göstermeye devam eder). Örneğin |AB| = 20 iken AB'yi H ile böldüysen ve parçaları yazıyorsan, toplamın parçalarla karışmaması için gerekiyorsa "remove": ["AB"] ekle. Sadece gerçekten kafa karıştıran sayıyı sil.
+- Bölünen kenar: bir kenarın üzerine yeni bir nokta düştüğünde (dikme ayağı, orta nokta, kesişim), uygulama o kenarın sayısını ve eşitlik çentiğini kendiliğinden kenarın dışına, kitaptaki gibi |—30—| ölçü çizgisine taşır; bunun için bir şey yazma, toplamı silme.
+- Sayı silme: bir sayı artık yanlış ya da yanıltıcı olduğunda, o adımın add.remove kısmına yaz: "remove": ["AB"]. AB üzerindeki sayı ya da değişken o adımdan itibaren silinir ("Sadece soru" kitaptaki hâlini göstermeye devam eder). Sadece gerçekten kafa karıştıran sayıyı sil.
+- Hesabı şeklin üzerinde göster: öğrenci şekle bakarken yazıyı okumak zorunda kalmasın. Bilinmeyenleri ve ifadeleri kenarlara ve açılara yaz (add.vars ya da add.labels): x, 2x, 180° − 2α gibi. Benzer üçgenlerde ve oran sorularında kenarları oran birimiyle yaz, Türkiye'de kitapların yaptığı gibi: |AD| : |DB| = 1 : 2 ise "vars": {"AD": "k", "DB": "2k"}; benzerlik oranı 2 ise karşılıklı kenarlara a ve 2a. Sonra denklemi bu ifadelerle kur: "[AD:k] + [DB:2k] = 12 → 3k = 12 → k = 4".
 - labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
 - Senin eklediğin her şey (add içindekiler) şekilde turuncu, yeni çizgiler kesikli çizilir; kitaptakiler siyah/pembe kalır. Bu yüzden sorudaki şeyleri add'e, kendi eklediklerini üst kısma koyma.
 - Bloğu yazmadan önce kontrol et: üst kısımdaki (ya da figures içindeki) her çizgi, yardımcı çizgi, dik açı, işaret ve sayı fotoğraftaki şekilde gerçekten var mı? Kendi çizdiğin bir paralel, dikme, uzatma, köşegen ya da yeni bir nokta oraya girmişse, onu çizdiğin adımın add kısmına taşı. Yoksa daha ilk adımda, hatta "Sadece soru"da görünür ve öğrenci neyin kitapta olduğunu ayırt edemez. Kurduğun noktayı (par, perp, shift...) points'e yazmak sorun değil: nokta, onu kullanan çizgi bir adımda eklenince görünür.
@@ -411,7 +425,7 @@ Kurallar:
   - Önceki bir adımın sonucunu kullanırken (yerine koyma, ikisini birleştirme) onu o anda açıkça yeniden yaz: metinde "x + y = 10 bulmuştuk, yerine koyalım" de, math'te yerine koyduğun satırı ayrı göster: "6 + 2 · (x + y)", "= 6 + 2 · 10   (x + y = 10)", "= 26". Bir ifadeyi önceki sonuca benzetmek için düzenliyorsan (2x + 2y'yi 2(x + y) yapmak gibi) bunu da ayrı satırda göster ve nedenini söyle ("x + y'yi biliyoruz, o yüzden onu ortaya çıkaralım").
   - Gerekçe sütunu: bir math satırı verilenden, bir kuraldan ya da önceki bir sonuçtan geliyorsa gerekçesini satırın sonuna en az iki boşluk bırakıp parantez içinde kısaca yaz: "2α + 2β = 180°   (komşu açılar)", "= 6 + 2 · 10   (x + y = 10)", "[AF] = 9   (2. adım)". Uygulama gerekçeyi hesabın sağında ayrı bir etiket olarak gösterir, yazılı ispatın gerekçe sütunu gibi. Düz aritmetik satırlara gerekçe yazma.
   - Bloğu yazmadan önce her math satırını kontrol et: bir önceki satırdan nasıl geçildiği ya da kullanılan bilgi görünüyor mu? Görünmüyorsa satır ya da kısa bir not ekle.
-- steps: her adımda tek fikir. Şekilde gösterilmesi gereken kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle; uygulama işaretlediğin her şeyi renkli çizer, bu yüzden bir adımda sadece o adımın asıl konusu olan 1-3 şeyi işaretle (dikme çizerken dikme ve indiği kenar yeter). İşaretler: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
+- steps: her adımda tek fikir. Şekilde gösterilmesi gereken kenar, açı, üçgen, çokgen ya da noktayı köşeli parantezle işaretle; öğrenci adımı satır satır okur: her cümle ve her math satırı sırayla öne çıkar ve şekilde sadece o satırda işaretlediğin şeyler, metindeki renkleriyle yanar. Bu yüzden her cümlede ve her math satırında, şekilde bakılması gereken her kenarı ve açıyı işaretle; bir cümle tek bir şeyden bahsetsin ve en fazla 1-3 şey işaretlesin (dikme çizerken dikme ve indiği kenar yeter). İşaretler: [AB] kenar, [∠ABC] B köşesindeki açı (her zaman ∠ ve üç nokta), [△ABC] üçgen, [ABCD] çokgen, [A] nokta. Uzunluk için de [AB] yaz (|AB| yazma). Köşeli parantezi başka bir şey için kullanma. Denklemleri kenar adlarıyla kur, harf yığınıyla değil.
 - asked: sorunun ne istediği, HER zaman yaz. "ref": uzunluk için "EC", açı için "∠ABC", alan için "ABCD" ya da "△ABC". "text": sorunun soru cümlesi, kitaptaki gibi aynen ("A(ABCD) kaç cm²?", "|EC| = x kaç cm'dir?"). "value": kısa cevap ("78", "9", "40°"). İstenen şey şekilde sarıyla işaretlenir. Kitap bilinmeyene bir ad verdiyse (EC üzerinde "x" gibi) onu labels'a yaz; vermediyse uygulama "?" yazar.
 - Değişkenler: çözüm için gerekiyorsa bilinmeyen bir kenara ya da açıya ad ver (a, x, α...). Adımın add.vars kısmına yaz: "vars": { "AD": "a", "∠DAE": "α" }. Ad şeklin üzerine eğik yazılır ve sonraki adımlarda kalır. Aynı uzunluktaki her kenara aynı adı yaz. Değeri soruyu çözmek için gerekiyorsa bulup add.labels'a yaz; şekilde "a = 6" olarak görünür.
 - math: işlem satırları. Hesabı adım metnine değil "math" listesine yaz, her satıra bir işlem; metin nedenini anlatır, math hesabı gösterir. Çarpma için · kullan. Kenarları [AF] gibi işaretle.
@@ -460,6 +474,7 @@ const LISTS = ['lines', 'helpers', 'hidden', 'circles', 'rights', 'equalAngles',
 let figs = [], viewFig = 0;
 let isSample = false, asked = null, base = null, names = [], steps = [], cur = 0, solo = null, problemOnly = false, showHl = true, sideNames = {}, customRules = {}, shareText = '';
 let refs = new Map(), colorOf = new Map();
+let line = 0, lineSink = null; // line: the line of the current step being read; lineSink collects what a line names
 let full = { x: 0, y: 0, w: W, h: 300 }, view = null; // view: zoomed viewBox, null when showing everything
 let autoView = false, figP = {}, glide = 0; // autoView: the current zoom came from the step, not the student's fingers; figP: points on screen
 
@@ -622,6 +637,7 @@ function renderText(t, i, inMath = false, noted = new Set()) {
     // The figure lights up what the sentence talks about and values tagged with their side; a plain side in a
     // calculation stays a colored chip and lights up when tapped, so one small step doesn't paint the whole figure.
     refs.set(r.key, r); (inMath && !val ? steps[i].mathKeys : steps[i].keys).add(r.key);
+    if (lineSink && !lineSink.includes(r.key)) lineSink.push(r.key);
     if (!colorOf.has(r.key)) colorOf.set(r.key, colorOf.size % NCOL);
     const c = `var(--c${colorOf.get(r.key)})`, letters = refLetters(r, inMath || bar !== undefined), named = sideNames[r.key];
     const icon = !word && (r.type === 'seg' || r.type === 'point') ? glyph(r.type, 'var(--c)') : ''; // ∠ and △ already say what they are
@@ -743,7 +759,7 @@ function load(data, opts = {}) {
   $('question').textContent = data.question || '';
   // "idea": one sentence on the answer screen, what to recognize next time (not this problem's letters)
   const idea = data.idea ? String(data.idea) : '';
-  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : `<li class="step${s.answer ? ' answer' : ''}" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${s.math && s.math.length ? `<div class="math">${s.math.map(m => mathRow(m, i)).join('')}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}${s.answer ? (idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : '') + recapHtml(i) : '<button class="ask" type="button">Bu adımı anlamadım</button>'}</li>`)).join('');
+  $('steps').innerHTML = steps.map((s, i) => (useFig(figs[s.fig]), s.moves = movesOf(s), '') + (s.attempt ? attemptHtml(s, i) : stepHtml(s, i, idea))).join('');
   isSample = !!opts.sample;
   shareText = isSample ? '' : text;
   $('shareBtn').hidden = isSample;
@@ -762,15 +778,38 @@ function load(data, opts = {}) {
   });
   $('figtabs').hidden = figs.length < 2;
   $('figtabs').innerHTML = figs.map((g, n) => `<button class="tog" type="button" data-fig="${n}" aria-pressed="false">${esc(g.label)}</button>`).join('');
-  cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
+  cur = Math.max(0, Math.min(steps.length - 1, opts.step || 0)); line = 0; viewFig = steps[cur] ? steps[cur].fig : 0; solo = null; setMode(false);
 }
 function useFig(g) { base = g.base; names = g.names; }
 
 // A math line may end with its reason after two or more spaces: "= 6 + 2 · 10   (x + y = 10)". The reason sits apart
-// on the right, so it isn't read as part of the calculation.
-function mathRow(m, i) {
-  const w = m.match(/^(.*?\S)\s{2,}\((.+)\)\s*$/);
-  return w ? `<div class="mrow"><span>${renderText(w[1], i, true)}</span><span class="mwhy">${renderText(w[2], i, true)}</span></div>` : `<div>${renderText(m, i, true)}</div>`;
+// on the right, so it isn't read as part of the calculation. l: its line number in the step.
+function mathRow(m, i, l) {
+  const w = m.match(/^(.*?\S)\s{2,}\((.+)\)\s*$/), at = ` data-l="${l}"`;
+  return w ? `<div class="mrow ln"${at}><span>${renderText(w[1], i, true)}</span><span class="mwhy">${renderText(w[2], i, true)}</span></div>` : `<div class="ln"${at}>${renderText(m, i, true)}</div>`;
+}
+
+// A step is read line by line: each sentence and each calculation is a line, and while it is being read only what it
+// names lights up on the figure (s.lines[j].keys), each item in the color of its underline (s.colors).
+// A sentence that names nothing rides along with the next one, so every tap shows something on the figure.
+function sentences(t) {
+  const out = []; let carry = '';
+  for (const p of String(t).split(/(?<=[^\d\s][.!?])\s+/)) {
+    carry = carry ? carry + ' ' + p : p;
+    if (/\[[^\]]+\]/.test(carry)) { out.push(carry); carry = ''; }
+  }
+  if (carry.trim()) { if (out.length) out[out.length - 1] += ' ' + carry; else out.push(carry); }
+  return out;
+}
+function stepHtml(s, i, idea) {
+  if (s.answer) return `<li class="step answer" tabindex="0" data-i="${i}">${renderText(s.t, i, false, new Set())}${idea ? `<div class="idea"><span>Anahtar fikir</span>${renderText(idea, i)}</div>` : ''}${recapHtml(i)}</li>`;
+  const noted = new Set(), lines = s.lines = [];
+  const part = make => { lineSink = []; const html = make(lines.length); lines.push({ keys: lineSink }); lineSink = null; return html; };
+  const text = sentences(s.t).map(t => part(l => `<span class="ln" data-l="${l}">${renderText(t, i, false, noted)}</span>`)).join(' ');
+  const math = (s.math || []).map(m => part(l => mathRow(m, i, l))).join('');
+  s.colors = new Map();
+  for (const L of lines) for (const k of L.keys) if (!s.colors.has(k)) s.colors.set(k, `var(--c${s.colors.size % NCOL})`);
+  return `<li class="step" tabindex="0" data-i="${i}">${text}${math ? `<div class="math">${math}</div>` : ''}${s.moves.length ? '<button class="replay" type="button">▶ Üst üste koy</button>' : ''}<button class="ask" type="button">Bu adımı anlamadım</button></li>`;
 }
 
 // The answer ends with the method: every rule the solution used, as the same cards, in the order they came up,
@@ -974,7 +1013,7 @@ function drawFigure(F, o) {
   const nm = o.nm, ref = k => parseRef(k, nm), D = o.dims || { W, MAXH, PAD }, act = o.act || [], near = o.near || [];
   const { s, H, map } = frame(F, o.fit || F.circles, D), P = {};
   for (const [k, v] of Object.entries(F.points)) P[k] = map(v);
-  const col = () => 'var(--focus)';
+  const col = r => (o.colors && o.colors.get(r.key)) || 'var(--focus)';
   // An arc lies on the circle through both its ends; without a middle point it is the shorter way round.
   const turn = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a <= -Math.PI) a += 2 * Math.PI; return a; };
   const arcOf = r => {
@@ -1120,15 +1159,31 @@ function drawFigure(F, o) {
     block(Array.from({ length: 7 }, (_, t) => onArc(V, R, g.a1 + g.d * t / 6)));
     out += `<path class="${cls('mark', a.added)}" d="M${pt(onArc(V, R, g.a1))} ${arcTo(V, R, g)}"/>`;
   }
+  // n equal-length ticks across a segment at c (direction u, normal nrm)
+  const ticks = (c, u, nrm, n, added) => {
+    for (let t = 0; t < n; t++) {
+      const o = (t - (n - 1) / 2) * 5, q = [c[0] + u[0] * o, c[1] + u[1] * o];
+      out += `<line class="${cls('mark', added)}" x1="${f(q[0] - nrm[0] * 6)}" y1="${f(q[1] - nrm[1] * 6)}" x2="${f(q[0] + nrm[0] * 6)}" y2="${f(q[1] + nrm[1] * 6)}"/>`;
+    }
+  };
+  const sideTicks = (r, n, added) => { const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b); ticks([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], u, [-u[1], u[0]], n, added); };
+  // A side that another drawn point cuts (a foot, a midpoint): a number or tick in its middle would read as one part's,
+  // so its total and its ticks go on a dimension line beside it, |—30—|, as the book writes it (see dimLine).
+  const cut = r => {
+    const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b), L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return [...shown].some(n => {
+      if (r.p.includes(n)) return false;
+      const d = [P[n][0] - a[0], P[n][1] - a[1]], t = d[0] * u[0] + d[1] * u[1];
+      return Math.abs(d[0] * u[1] - d[1] * u[0]) < 1 && t > 6 && t < L - 6;
+    });
+  };
+  const dimTicks = new Map(); // key -> { r, n, added }: ticks waiting for their side's dimension line
   F.equalSides.forEach((grp, gi) => {
     for (const { v: k, added } of grp) {
       const r = ref(k); if (!r || r.type !== 'seg') continue;
       use(r.p); track(added);
-      const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b), nrm = [-u[1], u[0]], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], n = gi + 1;
-      for (let t = 0; t < n; t++) {
-        const o = (t - (n - 1) / 2) * 5, c = [m[0] + u[0] * o, m[1] + u[1] * o];
-        out += `<line class="${cls('mark', added)}" x1="${f(c[0] - nrm[0] * 6)}" y1="${f(c[1] - nrm[1] * 6)}" x2="${f(c[0] + nrm[0] * 6)}" y2="${f(c[1] + nrm[1] * 6)}"/>`;
-      }
+      if (cut(r)) dimTicks.set(r.key, { r, n: gi + 1, added });
+      else sideTicks(r, gi + 1, added);
     }
   });
   // True when segment q lies on segment r (same line, inside it) without being r itself.
@@ -1147,8 +1202,8 @@ function drawFigure(F, o) {
   // The rest of what the sentence names goes underneath as a wide pale blue band, matching its lighter underline in the text,
   // so every underlined word can be found on the figure and the step's main item still stands out.
   const hl = (r, strong) => {
+    if (strong && isWhole(r)) strong = false; // a wide band under its highlighted parts, so all of them stay visible
     const c = col(r), o2 = strong ? 1 : .32; use(r.p);
-    if (strong && isWhole(r)) return; // its highlighted parts already cover it
     if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-opacity:${o2};stroke-linecap:round;stroke-width:${strong ? 4 : 8}"/>`;
     else if (r.type === 'poly') out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 3 : 7};stroke-linejoin:round"/>`;
     else if (r.type === 'angle') {
@@ -1159,7 +1214,9 @@ function drawFigure(F, o) {
     else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="${strong ? 7 : 9}" style="fill:${c};fill-opacity:${o2}"/>`;
   };
   for (const r of near) hl(r, false);
-  for (const r of act) hl(r, true);
+  // bottom to top: a whole side under its parts, a shape under its sides, then sides, angles and points
+  const layer = r => isWhole(r) ? 0 : r.type === 'poly' ? 1 : 2;
+  for (const r of [...act].sort((a, b) => layer(a) - layer(b))) hl(r, true);
   const all = Object.values(P), cx = all.reduce((a, p) => a + p[0], 0) / all.length, cy = all.reduce((a, p) => a + p[1], 0) / all.length;
   const labelSegs = Object.keys(F.labels).map(ref).filter(r => r && r.type === 'seg');
   for (const k of Object.keys(F.labels)) { const r = ref(k); if (r && r.type !== 'point' && r.type !== 'poly') use(r.p); }
@@ -1211,6 +1268,29 @@ function drawFigure(F, o) {
     }
     spots[k] = best(cands, [k]);
   }
+  // The dimension line of side r on its outer side n: |—v—|, the line broken around the number, with the side's equal
+  // ticks between the start and the number. Tries a few free spots; returns the number's box (true with no number),
+  // or null when none is free.
+  const dimLine = (r, n0, v, size, added) => {
+    const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b), L = Math.hypot(b[0] - a[0], b[1] - a[1]), tk = dimTicks.get(r.key);
+    for (const [sg, o2] of [[1, 30], [1, 46], [-1, 30]]) {
+      const n = [n0[0] * sg, n0[1] * sg], a2 = [a[0] + n[0] * o2, a[1] + n[1] * o2], b2 = [b[0] + n[0] * o2, b[1] + n[1] * o2];
+      const m2 = [(a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2], dq = v ? boxOf(m2[0], m2[1], v, size) : null;
+      const half = dq ? (Math.abs(u[0]) * dq.w + Math.abs(u[1]) * dq.h) / 2 + 3 : 0;
+      if (L < 2 * half + 14 || obst.some(sg2 => segCross(sg2, [a2, b2])) || (dq && clash(dq) > 0)) continue;
+      const c = cls('mark', added), seg = (p, q) => `<line class="${c}" x1="${f(p[0])}" y1="${f(p[1])}" x2="${f(q[0])}" y2="${f(q[1])}"/>`;
+      out += dq ? seg(a2, [m2[0] - u[0] * half, m2[1] - u[1] * half]) + seg([m2[0] + u[0] * half, m2[1] + u[1] * half], b2) : seg(a2, b2);
+      for (const e of [a2, b2]) out += seg([e[0] - n[0] * 5, e[1] - n[1] * 5], [e[0] + n[0] * 5, e[1] + n[1] * 5]);
+      if (tk) { const t = dq ? (.5 - half / L) / 2 : .5; ticks([a2[0] + (b2[0] - a2[0]) * t, a2[1] + (b2[1] - a2[1]) * t], u, n, tk.n, tk.added); dimTicks.delete(r.key); }
+      obst.push([a2, b2]); if (dq) boxes.push(dq);
+      return dq || true;
+    }
+    return null;
+  };
+  const outward = r => {
+    const a = P[r.p[0]], b = P[r.p[1]], u = unit(a, b), n = [-u[1], u[0]];
+    return ((a[0] + b[0]) / 2 - cx) * n[0] + ((a[1] + b[1]) / 2 - cy) * n[1] < 0 ? [-n[0], -n[1]] : n;
+  };
   for (const [k, L] of Object.entries(F.labels)) {
     const v = labelText(L), added = L.added, size = L.name ? 17 : 15;
     const r = ref(k); if (!r) continue;
@@ -1219,18 +1299,11 @@ function drawFigure(F, o) {
       const a = P[r.p[0]], b = P[r.p[1]], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], u = unit(a, b);
       let n = [-u[1], u[0]];
       if ((m[0] - cx) * n[0] + (m[1] - cy) * n[1] < 0) n = [-n[0], -n[1]];
-      if (labelSegs.some(s2 => inside(s2, r))) {
-        // A total over labeled parts: book-style dimension line further out, with end ticks, when that spot is free.
-        const o2 = 34, a2 = [a[0] + n[0] * o2, a[1] + n[1] * o2], b2 = [b[0] + n[0] * o2, b[1] + n[1] * o2];
-        const dq = boxOf(m[0] + n[0] * o2, m[1] + n[1] * o2, v, size);
-        if (!obst.some(sg => segCross(sg, [a2, b2])) && clash(dq) === 0) {
-          const c = cls('mark', added);
-          out += `<line class="${c}" x1="${f(a2[0])}" y1="${f(a2[1])}" x2="${f(b2[0])}" y2="${f(b2[1])}"/>`;
-          for (const e of [a2, b2]) out += `<line class="${c}" x1="${f(e[0] - n[0] * 5)}" y1="${f(e[1] - n[1] * 5)}" x2="${f(e[0] + n[0] * 5)}" y2="${f(e[1] + n[1] * 5)}"/>`;
-          obst.push([a2, b2]); boxes.push(dq); q = dq;
-        }
-      }
+      // a total over parts (labeled, or cut by a point): book-style dimension line beside the side
+      if (cut(r) || labelSegs.some(s2 => inside(s2, r))) q = dimLine(r, n, v, size, added);
       if (!q) {
+        const tk = dimTicks.get(r.key); // no room beside it: number and ticks stay on the side together
+        if (tk) { sideTicks(r, tk.n, tk.added); dimTicks.delete(r.key); }
         const cands = [];
         [.5, .4, .6, .3, .7, .22, .78].forEach((t, j) => [n, [-n[0], -n[1]]].forEach((d, side) => {
           const c = boxOf(0, 0, v, size), r2 = 4 + away(d, c);
@@ -1264,6 +1337,7 @@ function drawFigure(F, o) {
     track(added);
     out += `<text class="${cls('given', added)}${L.name ? ' var' : ''}" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(v)}</text>`;
   }
+  for (const { r, n, added } of [...dimTicks.values()]) if (!dimLine(r, outward(r), '', 0, added)) sideTicks(r, n, added);
   for (const k of letters) {
     const p = P[k], q = spots[k];
     out += `<circle class="dot" cx="${f(p[0])}" cy="${f(p[1])}" r="2.2"/><text class="plabel" x="${f(q.x)}" y="${f(q.y)}" text-anchor="middle" dominant-baseline="central">${esc(k)}</text>`;
@@ -1289,7 +1363,7 @@ function figDims() {
   if ($('app').classList.contains('stepper') || cw < 480) return { W, MAXH, PAD };
   // below the drawing: the view buttons and the fixed step bar. The drawing is sticky, so its own position moves with
   // scrolling; measure from the layout, which doesn't, or the figure shrinks as the steps scroll by.
-  const top = $('layout').getBoundingClientRect().top + scrollY + svg.getBoundingClientRect().top - svg.parentElement.getBoundingClientRect().top, avail = Math.max(320, innerHeight - top - 150), w = Math.max(W, cw / 1.2);
+  const top = $('layout').getBoundingClientRect().top + scrollY + svg.getBoundingClientRect().top - svg.parentElement.getBoundingClientRect().top, avail = Math.max(320, innerHeight - top - 150 - (steps.some(s => s.lines && s.lines.length) ? 64 : 0)), w = Math.max(W, cw / 1.2);
   return { W: w, MAXH: avail * w / cw, PAD };
 }
 let lastDims = '';
@@ -1308,8 +1382,11 @@ function render() {
   const tgt = asked && asked.fig === fig ? asked : null;
   const fresh = drawIn && !problemOnly ? cur : -1; drawIn = false;
   const F = figureAt(problemOnly ? -1 : cur, fresh);
-  const act = problemOnly || !showHl ? [] : (solo ? [solo] : [...(steps[cur] ? steps[cur].focus : [])]).map(k => refs.get(k)).filter(Boolean);
-  const near = problemOnly || !showHl || solo || !steps[cur] ? [] : nearKeys(steps[cur]).map(k => refs.get(k)).filter(Boolean);
+  // What lights up: the item tapped, else what the line being read names (each in the color of its underline),
+  // else the step's main item with the rest of its sentence pale (the answer, the student's own work).
+  const st = steps[cur], L = !problemOnly && st && st.lines && st.lines[line], lineKeys = L && L.keys.length ? L.keys : null;
+  const act = problemOnly || !showHl ? [] : (solo ? [solo] : lineKeys || [...(st ? st.focus : [])]).map(k => refs.get(k)).filter(Boolean);
+  const near = problemOnly || !showHl || solo || lineKeys || !st ? [] : nearKeys(st).map(k => refs.get(k)).filter(Boolean);
   // A length or angle the book left unlabeled gets a "?" written on it like a given value; on the answer step, the answer.
   if (tgt && asked.r.type !== 'poly' && asked.r.type !== 'point') {
     const solved = !problemOnly && steps[cur] && steps[cur].answer && asked.value;
@@ -1320,7 +1397,7 @@ function render() {
     else if (!own) putLabel(F, asked.ref, { v: '?', added: false });
   }
   const atAnswer = !problemOnly && steps[cur] && steps[cur].answer;
-  const d = drawFigure(F, { nm: names, act, near, dims: figDims(), unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
+  const d = drawFigure(F, { nm: names, act, near, colors: st && st.colors, dims: figDims(), unlabeled: base.unlabeled, target: tgt && { r: asked.r, value: atAnswer ? asked.value : '' }, fit: figureAt(steps.length).circles });
   const svg = $('svg');
   full = { x: d.x, y: d.y, w: d.w, h: d.h }; figP = d.P;
   svg.style.setProperty('--ar', (d.h / d.w).toFixed(3));
@@ -1344,17 +1421,26 @@ function render() {
     el.classList.toggle('on', i === cur); el.classList.toggle('later', i > cur);
     if (i === cur) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
   });
-  document.querySelectorAll('.ref').forEach(el => {
-    const here = +el.dataset.i === cur;
-    el.classList.toggle('solo', here && el.dataset.k === solo);
-    el.classList.toggle('focus', here && !solo && !!steps[cur] && steps[cur].focus.has(el.dataset.k));
-    el.classList.toggle('near', here && !solo && !!steps[cur] && nearKeys(steps[cur]).includes(el.dataset.k));
+  document.querySelectorAll('#steps .ln').forEach(el => el.classList.toggle('cur', +el.closest('.step').dataset.i === cur && +el.dataset.l === line));
+  document.querySelectorAll('#steps .ref').forEach(el => {
+    const i = +el.dataset.i, here = i === cur, k = el.dataset.k, ln = el.closest('.ln');
+    const lit = here && !solo && (lineKeys ? !!ln && +ln.dataset.l === line : !!st && st.focus.has(k));
+    el.classList.toggle('solo', i <= cur && k === solo); // tapped on the figure: every mention so far lights up
+    el.classList.toggle('focus', lit);
+    el.classList.toggle('near', here && !solo && !lineKeys && !!st && nearKeys(st).includes(k));
+    const c = here && (lit || k === solo) && st.colors && st.colors.get(k);
+    if (c) el.style.setProperty('--c', c); else el.style.removeProperty('--c');
   });
+  const capEl = L && document.querySelector(`.step[data-i="${cur}"] .ln.cur`);
+  $('cap').replaceChildren(...(capEl ? [capEl.cloneNode(true)] : []));
+  $('cap').querySelectorAll('button').forEach(b => { b.tabIndex = -1; });
+  $('cap').hidden = !capEl;
   // the answer screen counts too, so the last step never reads as the end
-  const nSteps = steps.filter(s => !s.attempt).length, end = cur >= steps.length - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
+  const nl = L ? st.lines.length : 0, nSteps = steps.filter(s => !s.attempt).length, end = cur >= steps.length - 1 && line >= nl - 1, skip = steps[0] && steps[0].attempt ? 1 : 0;
   $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].attempt ? 'Senin çözümün' : `${cur + 1 - skip} / ${nSteps}`;
+  if (nl > 1) $('count').insertAdjacentHTML('beforeend', `<span class="dots" aria-hidden="true">${st.lines.map((_, j) => `<i${j === line ? ' class="on"' : ''}></i>`).join('')}</span>`);
   $('app').classList.toggle('no-steps', !steps.length);
-  $('prev').disabled = cur <= 0;
+  $('prev').disabled = cur <= 0 && line <= 0;
   // on the last step › becomes "start over"
   $('next').disabled = steps.length < 2;
   $('next').classList.toggle('restart', end);
@@ -1390,14 +1476,31 @@ function setMode(on) {
   render();
 }
 
-// focus: a chip key to single out on arrival (tapping a side name in another step)
-function go(i, focus = null) {
+// focus: a chip key to single out on arrival (tapping a side name in another step); at: the line to read, -1 the last
+function go(i, focus = null, at = 0) {
   if (!steps.length) return;
   const next = Math.max(0, Math.min(steps.length - 1, i));
   if (steps[next].fig !== steps[cur].fig) view = null;
-  drawIn = next !== cur; cur = next; viewFig = steps[cur].fig; solo = focus; render(); stepZoom();
+  drawIn = next !== cur; cur = next; viewFig = steps[cur].fig; solo = focus;
+  const n = (steps[cur].lines || []).length; line = at < 0 ? Math.max(0, n - 1) : Math.min(at, Math.max(0, n - 1));
+  render(); stepZoom();
   try { localStorage.setItem('geo-step', String(cur)); } catch (e) {}
   showStep(); sayStep();
+}
+// ‹ ›, the arrow keys and swipes read on line by line; past a step's last line they go to the next step.
+function stepBy(d, wrap = false) {
+  if (!steps.length) return;
+  const n = (steps[cur].lines || []).length;
+  if (d > 0 ? line < n - 1 : line > 0) { line += d; solo = null; render(); showLine(); sayLine(); return; }
+  if (d > 0 && cur >= steps.length - 1) { if (wrap) go(0); return; }
+  go(cur + d, null, d < 0 ? -1 : 0);
+}
+function sayLine() {
+  const el = document.querySelector(`.step[data-i="${cur}"] .ln.cur`); if (!el) return;
+  const c = el.cloneNode(true);
+  c.querySelectorAll($('app').classList.contains('names') ? '.ref .lt' : '.ref .nm').forEach(m => m.remove());
+  c.querySelectorAll('.mwhy').forEach(w => { w.textContent = `, çünkü ${w.textContent.trim()}`; });
+  $('say').textContent = c.textContent.trim();
 }
 // Screen readers hear the new step's sentence and calculation, not just "2 / 5".
 // A step as plain lines, as it is on screen: letters or side names (not both glued together), no buttons;
@@ -1428,6 +1531,16 @@ async function askAbout(i) {
 function showStep() {
   const el = document.querySelector(`.step[data-i="${cur}"]`); if (!el) return;
   if ($('app').classList.contains('stepper')) { $('steps').scrollTop = 0; return; }
+  reveal(el);
+}
+// The line being read stays in view: in the phone's step box, or on the page below the pinned figure.
+function showLine() {
+  const el = document.querySelector(`.step[data-i="${cur}"] .ln.cur`); if (!el) return;
+  if (!$('app').classList.contains('stepper')) { reveal(el); return; }
+  const box = $('steps'), r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom + 8; else if (r.top < b.top) box.scrollTop -= b.top - r.top + 8;
+}
+function reveal(el) {
   const fig = $('app').querySelector('.fig'), stacked = fig.getBoundingClientRect().right > el.getBoundingClientRect().left;
   const top = (stacked ? fig.offsetHeight : 0) + 12;
   const bottom = innerHeight - $('app').querySelector('.stepbar').offsetHeight - 12;
@@ -1453,20 +1566,28 @@ $('steps').addEventListener('click', e => {
   if (ask) { askAbout(+ask.closest('.step').dataset.i); return; }
   const rp = e.target.closest('.replay');
   if (rp) { const i = +rp.closest('.step').dataset.i; if (i !== cur) go(i); else { replay = true; render(); } return; }
-  const ref = e.target.closest('.ref');
+  const ref = e.target.closest('.ref'), ln = e.target.closest('.ln'), l = ln ? +ln.dataset.l : 0;
   if (ref) {
     const i = +ref.dataset.i, k = ref.dataset.k;
-    if (i !== cur) { go(i, k); return; }
+    if (i !== cur) { go(i, k, l); return; }
+    if (ln) line = l;
     solo = solo === k ? null : k; render(); return;
   }
-  const st = e.target.closest('.step'); if (st) go(+st.dataset.i);
+  // tapping a line reads it: it lights up what it names
+  const st = e.target.closest('.step'); if (!st) return;
+  if (+st.dataset.i !== cur) go(+st.dataset.i, null, l);
+  else if (ln && l !== line) { line = l; solo = null; render(); sayLine(); }
+});
+$('cap').addEventListener('click', e => {
+  const ref = e.target.closest('.ref'); if (!ref) return;
+  solo = solo === ref.dataset.k ? null : ref.dataset.k; render();
 });
 $('steps').addEventListener('keydown', e => {
   const st = e.target.closest('.step');
   if (st && (e.key === 'Enter' || e.key === ' ') && !e.target.closest('.ref, .replay, .ask')) { e.preventDefault(); go(+st.dataset.i); }
 });
-$('prev').addEventListener('click', () => go(cur - 1));
-$('next').addEventListener('click', () => go(cur >= steps.length - 1 ? 0 : cur + 1));
+$('prev').addEventListener('click', () => stepBy(-1));
+$('next').addEventListener('click', () => stepBy(1, true));
 $('mode').addEventListener('click', () => setMode(!problemOnly));
 $('hl').addEventListener('click', () => { showHl = !showHl; render(); });
 $('names').addEventListener('click', () => {
@@ -1482,7 +1603,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Tab' && !$('sheet').hidden) { e.preventDefault(); $('sheetClose').focus(); return; }
   // ← → step through the solution, unless typing or a card is open
   if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || problemOnly || !$('sheet').hidden || e.target.closest('textarea, input')) return;
-  e.preventDefault(); go(cur + (e.key === 'ArrowRight' ? 1 : -1));
+  e.preventDefault(); stepBy(e.key === 'ArrowRight' ? 1 : -1);
 });
 document.addEventListener('click', e => {
   if (!$('sheet').hidden && !$('sheet').contains(e.target) && !e.target.closest('.rule')) closeRule();
@@ -1575,12 +1696,50 @@ const endPtr = e => {
   // a one-finger sideways swipe on the unzoomed figure steps through the solution
   if (moved && !multi && (!view || autoView) && !problemOnly && start) {
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
-    if (Math.abs(dx) > 50 && Math.abs(dy) < Math.abs(dx) * 0.6) go(cur + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 50 && Math.abs(dy) < Math.abs(dx) * 0.6) stepBy(dx < 0 ? 1 : -1);
     return;
   }
   if (moved) return;
+  pickAt(e.clientX, e.clientY);
   if (e.timeStamp - lastTap < 320) { setView(null); lastTap = 0; } else lastTap = e.timeStamp;
 };
+// Tapping a side, angle or point on the figure singles it out in the text too: the line of this step that names it
+// becomes the line being read, and its mentions in earlier steps light up. Tapping it again, or empty space, lets go.
+const segDist = (p, a, b) => {
+  const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p.x - a[0]) * dx + (p.y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(p.x - a[0] - t * dx, p.y - a[1] - t * dy);
+};
+const inPoly = (p, ps) => {
+  let c = false;
+  for (let i = 0, j = ps.length - 1; i < ps.length; j = i++)
+    if ((ps[i][1] > p.y) !== (ps[j][1] > p.y) && p.x < (ps[j][0] - ps[i][0]) * (p.y - ps[i][1]) / (ps[j][1] - ps[i][1]) + ps[i][0]) c = !c;
+  return c;
+};
+function pickAt(x, y) {
+  const st = steps[cur], m = svgEl.getScreenCTM(); if (problemOnly || !st || !m) return;
+  const p = toSvg({ x, y }), tol = 16 / m.a, keys = new Set(), here = new Set([...st.keys, ...st.mathKeys]);
+  steps.forEach((s, i) => { if (i <= cur && s.fig === st.fig) [...s.keys, ...s.mathKeys].forEach(k => keys.add(k)); });
+  let pick = null, bestD = tol;
+  for (const k of keys) {
+    const r = refs.get(k), ps = r && r.p.map(n => figP[n]); if (!ps || !ps.every(Boolean)) continue;
+    let d = Infinity;
+    if (r.type === 'point') d = Math.hypot(p.x - ps[0][0], p.y - ps[0][1]) - 4;
+    else if (r.type === 'seg') d = segDist(p, ps[0], ps[1]) + Math.hypot(ps[1][0] - ps[0][0], ps[1][1] - ps[0][1]) / 1000; // of overlapping sides, the piece under the finger
+    else if (r.type === 'angle') { // inside the corner, near its vertex
+      const [A, V, C] = ps, t = [p.x - V[0], p.y - V[1]], u = [A[0] - V[0], A[1] - V[1]], w = [C[0] - V[0], C[1] - V[1]];
+      const cr = (a, b) => Math.sign(a[0] * b[1] - a[1] * b[0]), s0 = cr(u, w), dv = Math.hypot(t[0], t[1]);
+      if (s0 && cr(u, t) === s0 && cr(t, w) === s0 && dv < 3 * tol) d = dv / 4;
+    } else if (r.type === 'poly' && inPoly(p, ps)) d = tol * .9; // a shape only when nothing on it is closer
+    if (!here.has(k)) d += 4; // what this step talks about comes first
+    if (d < bestD) { bestD = d; pick = k; }
+  }
+  if (!pick) { if (solo) { solo = null; render(); } return; }
+  solo = solo === pick ? null : pick;
+  const j = (st.lines || []).findIndex(l => l.keys.includes(pick));
+  if (solo && j >= 0) line = j;
+  render();
+  if (solo && j >= 0) showLine();
+}
 svgEl.addEventListener('pointerup', endPtr);
 svgEl.addEventListener('pointercancel', endPtr);
 svgEl.addEventListener('wheel', e => {
