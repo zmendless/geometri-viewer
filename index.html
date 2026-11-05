@@ -238,6 +238,11 @@ html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hi
 .stepper .step:not(.on) { display: none; }
 .stepper .step { padding: 8px 0 8px 12px; }
 .stepper footer { display: none; }
+/* upright phone: the bar sits under the figure (JS moves it there), never at the screen's bottom edge, where an app's own
+   toolbar (the Claude app's) can cover it; the step text below gets room to scroll up from under such a toolbar */
+.stepper:not(.land) .stepbar { border-top: 0; border-bottom: 1px solid var(--line); }
+.stepper:not(.land) #steps { padding-bottom: 88px; }
+.stepper:not(.land) .toast { bottom: auto; top: 40%; }
 .stepper .stepbar { position: static; flex: none; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))) calc(-1 * max(16px, env(safe-area-inset-right, 0px))); }
 .stepper .toast { bottom: calc(var(--bar) + 12px); }
 /* sideways phone: figure left at full height; question, step and controls right */
@@ -1776,6 +1781,9 @@ function layoutMode() {
   const on = PHONE.matches && $('pastebox').hidden && $('setupbox').hidden, was = $('app').classList.contains('stepper');
   $('app').classList.toggle('stepper', on);
   $('app').classList.toggle('land', on && LAND.matches);
+  const nav = $('app').querySelector('.stepbar'), up = on && !LAND.matches;
+  if (up && nav.parentNode !== $('layout')) $('layout').insertBefore(nav, $('steps'));
+  else if (!up && nav.parentNode === $('layout')) $('app').appendChild(nav);
   if (on !== was && steps.length) { view = null; autoView = false; glide++; render(); showStep(); }
 }
 PHONE.addEventListener('change', layoutMode);
