@@ -266,7 +266,12 @@ html:has(#app.stepper), html:has(#app.stepper) body { height: 100%; overflow: hi
 .land .stepbar { grid-column: 2; grid-row: 6; margin-inline: 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))); border-top: 0; }
 .land .stepbar-in { height: 56px; }
 
-/* motion: feedback and continuity stay short; the one authored moment is Claude's pen (penIn in the script) */
+/* the ink thread from a word to its place on the drawing (tether in the script) */
+#tether { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; overflow: visible; }
+#tether .thread { fill: none; stroke: var(--c); stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+#tether circle { fill: var(--c); transform-box: fill-box; transform-origin: center; opacity: 0; }
+#tether .land { fill: none; stroke: var(--c); stroke-width: 2; }
+/* motion: feedback and continuity stay short; the authored moments are Claude's pen (penIn) and the ink thread (tether) */
 svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
 .primary, .arrow, .tog, .ref { transition: background-color .15s, color .15s, border-color .15s, transform .1s; }
 .step { transition: color .2s, border-color .2s; }
@@ -370,6 +375,7 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
   </div>
 </div>
 
+<svg id="tether" aria-hidden="true"></svg>
 <script>
 const PROMPT = `Sana bir geometri sorusu gönderdiğimde (genelde fotoğraf), soruyu Türkçe çöz. Sonra cevabın en sonuna, Geometri Görüntüleyici'ye yapıştırabilmem için bu JSON formatında TEK bir kod bloğu ekle:
 
@@ -1231,14 +1237,15 @@ function drawFigure(F, o) {
   const hl = (r, strong) => {
     if (strong && isWhole(r)) strong = false; // a wide band under its highlighted parts, so all of them stay visible
     const c = col(r), o2 = strong ? 1 : .32; use(r.p);
-    if (r.type === 'seg') out += `<line class="hl" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-opacity:${o2};stroke-linecap:round;stroke-width:${strong ? 4 : 8}"/>`;
-    else if (r.type === 'poly') out += `<polygon class="hl" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 3 : 7};stroke-linejoin:round"/>`;
+    const hlc = strong ? `hl" data-k="${esc(r.key)}` : 'hl';
+    if (r.type === 'seg') out += `<line class="${hlc}" x1="${f(P[r.p[0]][0])}" y1="${f(P[r.p[0]][1])}" x2="${f(P[r.p[1]][0])}" y2="${f(P[r.p[1]][1])}" style="stroke:${c};stroke-opacity:${o2};stroke-linecap:round;stroke-width:${strong ? 4 : 8}"/>`;
+    else if (r.type === 'poly') out += `<polygon class="${hlc}" points="${r.p.map(n => pt(P[n])).join(' ')}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 3 : 7};stroke-linejoin:round"/>`;
     else if (r.type === 'angle') {
       const V = P[r.p[1]], g = angleGeom(V, P[r.p[0]], P[r.p[2]]);
       const d = g.right ? `M${pt(V)} L${squarePts(V, g, 16).map(pt).join(' L')} Z` : `M${pt(V)} L${pt(onArc(V, 30, g.a1))} ${arcTo(V, 30, g)} Z`;
-      out += `<path class="hl" d="${d}" style="fill:${c};fill-opacity:${strong ? .45 : .2}"/>`;
-    } else if (r.type === 'arc') { const g = arcOf(r); if (g) out += `<path class="hl" d="${arcPath(g)}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 5 : 9};stroke-linecap:round"/>`; }
-    else if (r.type === 'point') out += `<circle class="hl" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="${strong ? 7 : 9}" style="fill:${c};fill-opacity:${o2}"/>`;
+      out += `<path class="${hlc}" d="${d}" style="fill:${c};fill-opacity:${strong ? .45 : .2}"/>`;
+    } else if (r.type === 'arc') { const g = arcOf(r); if (g) out += `<path class="${hlc}" d="${arcPath(g)}" style="fill:none;stroke:${c};stroke-opacity:${o2};stroke-width:${strong ? 5 : 9};stroke-linecap:round"/>`; }
+    else if (r.type === 'point') out += `<circle class="${hlc}" cx="${f(P[r.p[0]][0])}" cy="${f(P[r.p[0]][1])}" r="${strong ? 7 : 9}" style="fill:${c};fill-opacity:${o2}"/>`;
   };
   for (const r of near) hl(r, false);
   // bottom to top: a whole side under its parts, a shape under its sides, then sides, angles and points
@@ -1473,6 +1480,8 @@ function render() {
   $('next').classList.toggle('restart', end);
   $('next').setAttribute('aria-label', end ? 'Baştan başla' : 'Sonraki adım');
   $('next').innerHTML = end ? ICON_RESTART : ICON_NEXT;
+  const at = lineKeys && !solo && act.length ? `${fig}.${cur}.${line}` : '';
+  if (at !== tethered) { tethered = at; tether(at ? lineKeys : [], fresh >= 0); }
 }
 
 // Claude's pen: what this step adds is drawn onto the book figure in reading order:
@@ -1494,6 +1503,64 @@ function penIn(svg, answer) {
     if (area && !reduce) area.animate([{ fillOpacity: .22 }, { fillOpacity: .5 }, { fillOpacity: .22 }], { duration: 900, easing: 'ease-in-out' });
     fade([...svg.querySelectorAll('.given.answer')], reduce ? 0 : 160, [{ transform: 'scale(.7)' }, { transform: 'scale(1)' }]);
   }
+}
+
+// The signature moment: when a line becomes the one being read, an ink thread draws itself from each name in the text
+// to the side or angle it names on the drawing, then pulls itself into the figure, leaving the highlight behind.
+// The eye is carried across the gap between words and drawing. Ends are re-measured every frame, so scrolling never
+// detaches a thread; reduced motion keeps only the color match. Purely decorative: nothing depends on it.
+let tethered = '', tetherRun = 0;
+function tether(keys, afterPen) {
+  const layer = $('tether'), run = ++tetherRun;
+  layer.replaceChildren();
+  if (!keys.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const NS = 'http://www.w3.org/2000/svg', stepper = $('app').classList.contains('stepper');
+  const box = (stepper ? $('steps') : document.documentElement).getBoundingClientRect();
+  const cap = $('cap'), useCap = !cap.hidden && cap.offsetParent;
+  const st = steps[cur], ease = 'cubic-bezier(0.16, 1, 0.3, 1)', delay0 = afterPen ? 420 : 60;
+  const live = [];
+  keys.forEach((k, n) => {
+    const sel = `.ref[data-k="${CSS.escape(k)}"]`;
+    const chip = () => (useCap && cap.querySelector(sel)) || document.querySelector(`.step[data-i="${cur}"] .ln.cur ${sel}`);
+    const mark = () => $('svg').querySelector(`.hl[data-k="${CSS.escape(k)}"]`);
+    const c0 = chip(), m0 = mark(); if (!c0 || !m0) return;
+    const r = c0.getBoundingClientRect();
+    if (r.bottom < Math.max(0, box.top) || r.top > Math.min(innerHeight, box.bottom)) return; // its word is scrolled away
+    const color = (st.colors && st.colors.get(k)) || 'var(--focus)';
+    const path = document.createElementNS(NS, 'path'), dot = document.createElementNS(NS, 'circle'), land = document.createElementNS(NS, 'circle');
+    path.setAttribute('pathLength', '1'); path.setAttribute('class', 'thread');
+    dot.setAttribute('r', '3.2'); land.setAttribute('r', '5'); land.setAttribute('class', 'land');
+    for (const el of [path, dot, land]) el.style.setProperty('--c', color);
+    layer.append(path, dot, land);
+    const delay = delay0 + n * 110;
+    live.push({ chip, mark, path, dot, land, bend: 1 });
+    path.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0, offset: .38 }, { strokeDashoffset: 0, offset: .62 }, { strokeDashoffset: -1 }],
+      { duration: 1500, delay, easing: ease, fill: 'both' });
+    dot.animate([{ opacity: 0, transform: 'scale(.3)' }, { opacity: 1, transform: 'scale(1)', offset: .12 }, { opacity: 1, offset: .62 }, { opacity: 0, transform: 'scale(.3)' }],
+      { duration: 1500, delay, easing: ease, fill: 'both' });
+    land.animate([{ opacity: 0, transform: 'scale(.4)' }, { opacity: .55, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(3.2)' }],
+      { duration: 700, delay: delay + 470, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' });
+    m0.animate([{ filter: 'none' }, { filter: `drop-shadow(0 0 5px ${color})` }, { filter: 'none' }], { duration: 640, delay: delay + 450, easing: 'ease-out' });
+  });
+  if (!live.length) return;
+  const until = performance.now() + delay0 + live.length * 110 + 1550;
+  // the end on the word: the edge of its chip nearest the drawing; the end on the figure: the middle of the lit item
+  const frame = now => {
+    if (run !== tetherRun) return;
+    for (const t of live) {
+      const c = t.chip(), m = t.mark(); if (!c || !m) { t.path.remove(); t.dot.remove(); t.land.remove(); continue; }
+      const a = c.getBoundingClientRect(), b = m.getBoundingClientRect();
+      const tx = b.left + b.width / 2, ty = b.top + b.height / 2;
+      const sx = Math.min(Math.max(tx, a.left + 4), a.right - 4), sy = ty < a.top ? a.top - 3 : ty > a.bottom ? a.bottom + 3 : a.top + a.height / 2;
+      const dx = tx - sx, dy = ty - sy, L = Math.hypot(dx, dy) || 1, k = Math.min(36, L * .12) * t.bend;
+      const nx = -dy / L * k, ny = dx / L * k;
+      t.path.setAttribute('d', `M${sx.toFixed(1)} ${sy.toFixed(1)} C${(sx + dx * .3 + nx).toFixed(1)} ${(sy + dy * .3 + ny).toFixed(1)} ${(sx + dx * .7 + nx).toFixed(1)} ${(sy + dy * .7 + ny).toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`);
+      t.dot.setAttribute('cx', sx.toFixed(1)); t.dot.setAttribute('cy', sy.toFixed(1));
+      t.land.setAttribute('cx', tx.toFixed(1)); t.land.setAttribute('cy', ty.toFixed(1));
+    }
+    if (now < until) requestAnimationFrame(frame); else if (run === tetherRun) layer.replaceChildren();
+  };
+  requestAnimationFrame(frame);
 }
 
 function setMode(on) {
