@@ -75,6 +75,14 @@ pre { white-space: pre-wrap; max-height: 240px; overflow: auto; margin: 0; }
 .fig { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-bottom: 6px; }
 .fig svg { display: block; width: 100%; max-height: 46vh; touch-action: pan-y; user-select: none; -webkit-user-select: none;
   background-color: var(--page); border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+/* the solution's notes: found facts kept in a box by the figure, like a student's margin notes */
+.notes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; }
+.notes-h { font: italic 600 .9rem var(--serif); color: var(--fg2); margin-right: 2px; }
+.note-chip { padding: 2px 10px; border: 1px solid var(--line2); border-radius: 8px; background: var(--page); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; transition: background-color .2s, border-color .2s, color .2s; }
+.note-chip.new { border-color: var(--claude); color: var(--claude); }
+.note-chip.use { border-color: var(--focus); background: color-mix(in srgb, var(--focus) 12%, var(--page)); }
+.stepper .notes { flex-wrap: nowrap; overflow-x: auto; margin-top: 4px; scrollbar-width: none; }
+@media (prefers-reduced-motion: no-preference) { .note-chip.new { animation: pop .3s ease-out; } }
 .legend { display: block; text-align: right; margin: -2px 0 6px; color: var(--claude); font-size: .8rem; font-weight: 600; white-space: nowrap; }
 .legend::before { content: ""; display: inline-block; width: 16px; border-top: 2px dashed var(--claude); vertical-align: middle; margin-right: 6px; }
 .figtabs { position: absolute; top: 8px; left: 8px; z-index: 1; display: flex; gap: 6px; }
@@ -337,6 +345,7 @@ svg .fresh, svg .answer { transform-box: fill-box; transform-origin: center; }
     <div class="fig">
       <div class="figtabs" id="figtabs" role="group" aria-label="Şekiller" hidden></div>
       <svg id="svg" role="img" aria-label="Şekil"></svg>
+      <div class="notes" id="notes" role="note" aria-label="Notlar" hidden></div>
       <div class="cap" id="cap" aria-hidden="true" hidden></div>
       <span class="legend" id="legend" hidden>Claude ekledi</span>
       <button class="zoomreset" id="zoomReset" type="button" hidden>Sıfırla</button>
@@ -442,6 +451,7 @@ Kurallar:
 - Yükseklik ve uzaklık: bir alanda ya da oranda yükseklik veya iki paralel arasındaki uzaklık kullanıyorsan, onu şekle çiz: ayağını "foot" ile kur (ör. "H": "foot D AB", paralel bir doğruyu kestiği yer için "G": "inter DH EF"), dikmeyi add.helpers'a, dik işaretini add.rights'a, değerini ya da adını (k, 2k, h) add.vars ya da add.labels'a yaz ve adımda [DH] diye an. Çizilmemiş bir yükseklikten bahsetme: öğrenci "hangi yükseklik?" diye arar.
 - Alanları işaretle: alan yazarken çokgeni köşeli parantezle yaz, A([DCFE]) ya da A([△ABC]), ki o bölge şekilde yansın. Oranı sorulan iki bölgenin ikisini de an.
 - Bulduğun her eşitlik şekilde görünsün: bir math satırında bir kenarın değerini bulduğunda ("[PF] = [DC:2]") o adımın add.labels kısmına yaz ("PF": "2"); iki kenarın eşit olduğunu bulduysan add.equalSides'a da ekle. Yazıda bulunan ama şekilde görünmeyen sayı, öğrenciyi yazıya geri döndürür.
+- Notlar: tek bir kenara ya da açıya yazılamayan bir sonuç bulduğunda (x + y = 10, α + β = 90°, a · b = 24, |AE| = 2|EB| gibi), onu o adımın add.notes kısmına yaz: "notes": ["x + y = 10"]. Uygulama bunu şeklin altındaki not kutusunda o adımdan sonra hep gösterir; öğrenci geri dönüp aramaz. Sonraki bir adımda bu notu kullanırken gerekçe sütununa aynı yazıyla yaz: "= 6 + 2 · 10   (x + y = 10)"; uygulama kutudaki notu o satırda yakar. Notları köşeli parantezsiz, kısa yaz. Bir kenarın ya da açının değerini nota değil, add.labels'a yaz.
 - Bir oranın ya da eşitliğin neden geçerli olduğunu söyle: "benzer üçgenlerde yükseklikler de kenarlarla aynı oranda olduğu için" gibi. Bir sonuçtan diğerine geçerken aradaki bilgiyi atlama (örneğin küçük üçgenin yüksekliğinin, iki paralel arasındaki uzaklık olduğunu söyle).
 - labels: şeklin üzerine yazılan sayılar. Üst kısımdaki labels sadece soruda verilenler. Çözümde bulduğun HER uzunluğu ve açıyı ("AF": "9", "∠ABC": "40°", "DE": "x") o adımın add.labels kısmına yaz ki sayı çizginin üzerinde görünsün.
 - Senin eklediğin her şey (add içindekiler) şekilde turuncu, yeni çizgiler kesikli çizilir; kitaptakiler siyah/pembe kalır. Bu yüzden sorudaki şeyleri add'e, kendi eklediklerini üst kısma koyma.
@@ -1515,6 +1525,18 @@ function render() {
   $('cap').replaceChildren(...(capEl ? [capEl.cloneNode(true)] : []));
   $('cap').querySelectorAll('button').forEach(b => { b.tabIndex = -1; });
   $('cap').hidden = !capEl;
+  const norm = t => String(t).replace(/\s+/g, '').toLocaleLowerCase('tr');
+  // Notes beside the figure: what the solution found that belongs to no single side (x + y = 10), kept from the step
+  // that found it on; the one a line uses lights up, a new one comes in Claude's orange
+  // a note found in this step shows from the line that writes it (or at once, when no line spells it out)
+  const lns = [...document.querySelectorAll(`.step[data-i="${cur}"] .ln`)], upTo = norm(lns.filter(e => +e.dataset.l <= line).map(e => e.textContent).join(' '));
+  const all = norm(lns.map(e => e.textContent).join(' '));
+  const notes = problemOnly ? [] : steps.slice(0, cur + 1).flatMap((s, j) => arr(s.add.notes).map(t => ({ t: String(t), j })))
+    .filter(n => n.j < cur || !all.includes(norm(n.t)) || upTo.includes(norm(n.t)));
+  const reading = norm(capEl ? capEl.textContent : (document.querySelector(`.step[data-i="${cur}"]`) || {}).textContent || '');
+  $('notes').hidden = !notes.length;
+  $('notes').innerHTML = notes.length ? '<span class="notes-h">Notlar</span>' + notes.map(n =>
+    `<span class="note-chip${n.j === cur ? ' new' : ''}${n.j < cur && reading.includes(norm(n.t)) ? ' use' : ''}">${fmt(n.t)}</span>`).join('') : '';
   // the answer screen counts too, so the last step never reads as the end
   const nl = L ? st.lines.length : 0, nSteps = steps.filter(s => !s.attempt && !s.intro).length, end = cur >= steps.length - 1 && line >= nl - 1;
   $('count').textContent = !steps.length ? '' : atAnswer ? `Cevap${asked && asked.value ? ' · ' + asked.value : ''}` : steps[cur].intro ? 'Soru' : steps[cur].attempt ? 'Senin çözümün' : `${numOf(cur)} / ${nSteps}`;
